@@ -58,7 +58,7 @@ def enregistrer_mesure(capteur: Capteur, distance_cm, date=None):
             alerte = Alerte.objects.create(
                 reservoir=reservoir, type=Alerte.NIVEAU_HAUT,
                 message=f"Niveau d'eau trop haut ({mesure.niveau_pct:.0f}%) – {reservoir.nom}")
-        elif etat == 'normal' and precedente:
+        elif etat == 'normal' and etat_avant in ('bas', 'haut'):
             alerte = Alerte.objects.create(
                 reservoir=reservoir, type=Alerte.INFO,
                 message=f"Niveau revenu à la normale ({mesure.niveau_pct:.0f}%) – {reservoir.nom}")
