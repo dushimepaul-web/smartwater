@@ -13,6 +13,8 @@ ESP32 + JSN-SR04T/HC-SR04 ──HTTP POST /api/mesures/──┐
                          Navigateur (pages Django, rafraîchies toutes les 5 s via l'API)
 ```
 
+> 🚀 **Mise en ligne sur un serveur avec Docker et un nom de domaine** : voir la section [en bas de ce fichier](#-mise-en-ligne-sur-un-serveur-vps-avec-docker-et-un-nom-de-domaine).
+
 ## Installation (Windows)
 
 ```bat
@@ -163,3 +165,194 @@ Pour un vrai réservoir, prenez un **JSN-SR04T** (étanche). Il a le même câbl
 Il a une zone morte d'environ 20–25 cm : placez-le au moins 25 cm au-dessus du niveau maximum.
 
 L'ECHO de ces deux capteurs sort en 5 V. Mettez un pont diviseur 1 kΩ / 2 kΩ avant l'entrée GPIO 18 de l'ESP32.
+
+---
+
+# 🚀 Mise en ligne sur un serveur (VPS) avec Docker et un nom de domaine
+
+Ce guide va du serveur vide jusqu'au site en **HTTPS** sur votre domaine, par exemple `https://smartwater.mondomaine.com`.
+Remplacez partout `smartwater.mondomaine.com` par **votre** domaine et `203.0.113.10` par **l'adresse IP de votre serveur**.
+
+## Ce qui tourne sur le serveur
+
+```
+Internet ──► Caddy (ports 80/443, HTTPS automatique Let's Encrypt)
+                 └──► web : Django + gunicorn ──► db : MySQL 8.4 (non exposé)
+ESP32 ──HTTPS──► Caddy ──► web  /api/mesures/
+ESP32 ──MQTT (1883, mot de passe)──► mqtt : Mosquitto ──► mqtt_listener (Django) ──► db
+```
+
+| Service | Rôle |
+|---|---|
+| `db` | MySQL 8.4. Les données sont gardées dans le volume `db_data`. |
+| `web` | L'application Django (gunicorn). Les migrations s'appliquent toutes seules au démarrage. |
+| `mqtt` | Le broker Mosquitto. Il exige un identifiant et un mot de passe. |
+| `mqtt_listener` | Reçoit les mesures MQTT et les enregistre. |
+| `caddy` | Le serveur web public : il obtient et renouvelle le certificat HTTPS tout seul. |
+
+## Prérequis
+
+- Un VPS **Ubuntu 22.04 ou 24.04** (1 Go de RAM minimum, 2 Go conseillés), avec l'accès `root` en SSH.
+- Un **nom de domaine** chez un registraire (OVH, Namecheap, Cloudflare, Gandi, LWS…).
+
+## Étape 1 – Faire pointer le domaine vers le serveur (DNS)
+
+Dans l'espace client de votre registraire, menu **Zone DNS**, ajoutez deux enregistrements :
+
+| Type | Nom (sous-domaine) | Valeur | TTL |
+|---|---|---|---|
+| `A` | `smartwater` (ou `@` pour le domaine nu) | `203.0.113.10` | 300 |
+| `A` | `www.smartwater` (ou `www`) | `203.0.113.10` | 300 |
+
+- **Cloudflare :** mettez le nuage en **gris** (« DNS only ») pendant l'installation. Sinon, Caddy ne pourra pas obtenir son certificat.
+- **Vérification :** depuis votre PC, la commande `nslookup smartwater.mondomaine.com` doit répondre avec l'IP du serveur. Cela prend de quelques minutes à quelques heures.
+
+## Étape 2 – Se connecter au serveur et le préparer
+
+```bash
+ssh root@203.0.113.10
+
+apt update && apt upgrade -y
+apt install -y git ufw
+
+# Pare-feu : SSH, web, et MQTT pour les ESP32
+ufw allow OpenSSH
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 443/udp
+ufw allow 1883/tcp
+ufw --force enable
+```
+
+## Étape 3 – Installer Docker
+
+```bash
+curl -fsSL https://get.docker.com | sh
+docker --version
+docker compose version
+```
+
+## Étape 4 – Récupérer le projet
+
+```bash
+mkdir -p /opt && cd /opt
+git clone https://github.com/dushimepaul-web/smartwater.git
+cd smartwater
+```
+
+Le dépôt est privé ? GitHub vous demandera alors un identifiant et un **jeton personnel** (Settings → Developer settings → Personal access tokens) à la place du mot de passe.
+Vous pouvez aussi envoyer le zip depuis votre PC avec `scp smartwater.zip root@203.0.113.10:/opt/`, puis `unzip`.
+
+## Étape 5 – Créer le fichier de configuration `.env`
+
+```bash
+cp .env.production.example .env
+
+# Générez trois secrets et notez-les :
+openssl rand -hex 32   # -> DJANGO_SECRET_KEY
+openssl rand -hex 16   # -> DB_PASSWORD
+openssl rand -hex 16   # -> MYSQL_ROOT_PASSWORD
+openssl rand -hex 12   # -> MQTT_PASSWORD
+
+nano .env
+```
+
+Dans `nano`, remplacez :
+- `smartwater.mondomaine.com` par votre domaine, **partout** (DOMAINE, DJANGO_ALLOWED_HOSTS, DJANGO_CSRF_TRUSTED_ORIGINS, SITE_URL) ;
+- `EMAIL_LETSENCRYPT` par votre adresse e-mail (Let's Encrypt vous prévient en cas de problème de certificat) ;
+- toutes les valeurs `A_CHANGER…` par les secrets générés.
+
+Enregistrez avec `Ctrl+O`, `Entrée`, puis quittez avec `Ctrl+X`. Protégez ensuite le fichier : `chmod 600 .env`.
+
+⚠️ Ne changez plus `DJANGO_SECRET_KEY` ensuite : le mot de passe Gmail enregistré dans l'application est chiffré avec cette clé.
+
+## Étape 6 – Construire et démarrer
+
+```bash
+docker compose up -d --build
+docker compose ps                 # tous les services doivent être "running" / "healthy"
+docker compose logs -f web        # Ctrl+C pour quitter les journaux
+```
+
+Le premier démarrage prend 2 à 5 minutes (construction de l'image, initialisation de MySQL). Dans les journaux de `web`, vous devez voir « Base de données prête » puis les migrations.
+Le certificat HTTPS arrive tout seul, à condition que le DNS pointe déjà vers le serveur. Pour suivre son obtention : `docker compose logs caddy`.
+
+## Étape 7 – Créer le compte administrateur
+
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+
+La commande vous demande l'adresse e-mail, le nom et le mot de passe. Le compte reçoit automatiquement le rôle **Administrateur**.
+
+Ensuite, ouvrez **https://smartwater.mondomaine.com** et connectez-vous.
+
+## Étape 8 – Configurer dans l'application
+
+1. **Paramètres → E-mail (SMTP)** : entrez votre Gmail et le mot de passe d'application, cliquez sur **Enregistrer**, puis sur **Envoyer un e-mail de test**.
+2. **Réservoirs → Ajouter** : créez le réservoir, puis notez la **clé d'API** du capteur.
+3. **Paramètres → Notifications** : activez le téléphone (ntfy) et cliquez sur **Envoyer un test**.
+
+## Étape 9 – Brancher l'ESP32 sur le serveur en ligne
+
+Dans `firmware/esp32_smartwater/esp32_smartwater.ino` :
+
+- **En HTTPS (conseillé) :**
+  - `API_URL = "https://smartwater.mondomaine.com/api/mesures/"`
+  - `API_KEY = "<clé du capteur>"`
+- **En MQTT :**
+  - décommentez `#define MODE_MQTT` et commentez `#define MODE_HTTP` ;
+  - `MQTT_HOST = "smartwater.mondomaine.com"` ;
+  - `MQTT_USER` et `MQTT_PASS` : les valeurs du `.env` du serveur ;
+  - `ID_CAPTEUR` et `API_KEY` : ceux du capteur.
+
+Téléversez le programme, puis ouvrez le moniteur série à 115200 bauds. Il doit afficher `HTTP 201`. Le tableau de bord se met alors à jour en direct.
+
+Test sans ESP32, depuis n'importe quel PC :
+```bash
+curl -X POST https://smartwater.mondomaine.com/api/mesures/ -H "X-API-Key: <clé>" -H "Content-Type: application/json" -d "{\"distance_cm\": 40}"
+```
+
+## Utilisation au quotidien
+
+| Action | Commande (dans `/opt/smartwater`) |
+|---|---|
+| Voir l'état des services | `docker compose ps` |
+| Journaux (tous / un service) | `docker compose logs -f` · `docker compose logs -f mqtt_listener` |
+| Redémarrer | `docker compose restart` |
+| Arrêter / démarrer | `docker compose down` · `docker compose up -d` |
+| Mettre à jour après un `git push` | `git pull && docker compose up -d --build` |
+| Console Django | `docker compose exec web python manage.py shell` |
+| Console MySQL | `docker compose exec db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" smartwater'` |
+
+`docker compose down` **ne supprime pas** les données : elles restent dans les volumes. Ne lancez **jamais** `docker compose down -v` : cette commande efface la base.
+
+## Sauvegardes
+
+```bash
+chmod +x docker/sauvegarde.sh
+./docker/sauvegarde.sh                       # crée sauvegardes/smartwater_AAAA-MM-JJ_HHMM.sql.gz
+
+crontab -e                                   # sauvegarde automatique chaque nuit à 2 h :
+0 2 * * * cd /opt/smartwater && ./docker/sauvegarde.sh >> sauvegardes/journal.log 2>&1
+```
+
+Pour restaurer une sauvegarde :
+```bash
+gunzip -c sauvegardes/smartwater_2026-11-26_0200.sql.gz | docker compose exec -T db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" smartwater'
+```
+
+Copiez régulièrement le dossier `sauvegardes/` hors du serveur, par exemple avec `scp` vers votre PC.
+
+## Dépannage
+
+| Problème | Solution |
+|---|---|
+| Le site ne s'ouvre pas | `nslookup votre-domaine` doit donner l'IP du serveur. Vérifiez aussi `ufw status` (ports 80 et 443) et `docker compose logs caddy`. |
+| Erreur de certificat HTTPS | DNS pas encore propagé, ou Cloudflare en orange : attendez ou passez-le en gris, puis lancez `docker compose restart caddy`. |
+| « Bad Request (400) » | Le domaine manque dans `DJANGO_ALLOWED_HOSTS`. Corrigez `.env`, puis lancez `docker compose up -d`. |
+| « CSRF verification failed » à la connexion | `DJANGO_CSRF_TRUSTED_ORIGINS` doit contenir `https://votre-domaine`. |
+| `web` redémarre en boucle | `docker compose logs web`. La cause est souvent `DJANGO_SECRET_KEY` absente ou un mot de passe MySQL différent entre `.env` et la base déjà créée. |
+| L'ESP32 reçoit `401` | Mauvaise clé d'API : copiez-la depuis **Réservoirs → Modifier**. |
+| MQTT « not authorised » | `MQTT_USER` et `MQTT_PASSWORD` de l'ESP32 doivent être identiques à ceux du `.env`. |
+| Les e-mails ne partent pas | **Paramètres → E-mail (SMTP) → Envoyer un e-mail de test** affiche la raison. Certains hébergeurs bloquent le port 587 : demandez au support de l'ouvrir. |

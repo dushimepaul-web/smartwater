@@ -32,8 +32,12 @@ if _fichier_env.exists():
 
 
 # --- Sécurité --------------------------------------------------------------
-SECRET_KEY = env('DJANGO_SECRET_KEY', 'dev-uniquement-changez-moi-en-production')
+CLE_DEV = 'dev-uniquement-changez-moi-en-production'
+SECRET_KEY = env('DJANGO_SECRET_KEY', CLE_DEV)
 DEBUG = env_bool('DJANGO_DEBUG', True)
+if not DEBUG and SECRET_KEY == CLE_DEV:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured('Production : définissez DJANGO_SECRET_KEY dans .env (openssl rand -hex 32)')
 ALLOWED_HOSTS = [h.strip() for h in env('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',') if h.strip()]
 # Permet à l'ESP32 du réseau local de joindre le serveur (ex. 192.168.1.20)
 if env_bool('DJANGO_ALLOW_LAN', True) and DEBUG:
@@ -61,6 +65,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -135,6 +140,12 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Fichiers statiques servis par WhiteNoise (compressés, mis en cache) en production
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage' if not DEBUG
+                    else 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
@@ -190,3 +201,23 @@ MQTT_PASSWORD = env('MQTT_PASSWORD', '')
 MQTT_TLS = env_bool('MQTT_TLS', False)
 # L'ESP32 publie sur smartwater/capteurs/<id_capteur>/mesure
 MQTT_TOPIC_PREFIXE = env('MQTT_TOPIC_PREFIXE', 'smartwater/capteurs')
+
+
+# --- Production derrière Caddy (HTTPS) -------------------------------------
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in env('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'same-origin'
+    X_FRAME_OPTIONS = 'DENY'
+    # La redirection HTTP -> HTTPS et HSTS sont faites par Caddy
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {'console': {'class': 'logging.StreamHandler'}},
+    'root': {'handlers': ['console'], 'level': env('DJANGO_LOG_LEVEL', 'INFO')},
+    'loggers': {'django.server': {'level': 'WARNING'}},
+}

@@ -1,0 +1,23 @@
+# Caddy obtient et renouvelle automatiquement le certificat HTTPS (Let's Encrypt)
+# pour le domaine indiqué dans DOMAINE (fichier .env).
+{
+	email {$EMAIL_LETSENCRYPT}
+}
+
+{$DOMAINE} {
+	encode zstd gzip
+	reverse_proxy web:8000
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	log {
+		output stdout
+		format console
+	}
+}
+
+# www.mondomaine.com -> mondomaine.com
+www.{$DOMAINE} {
+	redir https://{$DOMAINE}{uri} permanent
+}

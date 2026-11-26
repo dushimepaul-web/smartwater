@@ -2,7 +2,8 @@
  * SmartWater IoT – ESP32 + capteur ultrason (HC-SR04 ou JSN-SR04T étanche)
  *
  * Mesure la distance jusqu'à la surface de l'eau et l'envoie au serveur Django :
- *   - MODE_HTTP : POST http://<serveur>:8000/api/mesures/  (en-tête X-API-Key)
+ *   - MODE_HTTP : POST https://<votre-domaine>/api/mesures/  (en-tête X-API-Key)
+ *                 ou http://<IP du PC>:8000/api/mesures/ en local
  *   - MODE_MQTT : publie sur smartwater/capteurs/<ID_CAPTEUR>/mesure
  * Le serveur calcule le niveau : (hauteur_cm - distance_cm) / hauteur_cm * 100.
  *
@@ -16,20 +17,25 @@
  * Carte : « ESP32 Dev Module » (paquet esp32 by Espressif)
  */
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
 // ---------- À MODIFIER ----------
 const char* WIFI_SSID     = "MonWiFi";
 const char* WIFI_PASSWORD = "MotDePasseWiFi";
-const char* API_URL       = "http://192.168.1.20:8000/api/mesures/";   // IP du PC qui lance « runserver 0.0.0.0:8000 »
+// Serveur en ligne (Docker + domaine) :  "https://smartwater.mondomaine.com/api/mesures/"
+// Serveur local (runserver 0.0.0.0:8000) : "http://192.168.1.20:8000/api/mesures/"
+const char* API_URL       = "https://smartwater.mondomaine.com/api/mesures/";
 const char* API_KEY       = "COLLER_ICI_LA_CLE_DU_CAPTEUR";            // Réservoirs > Modifier > Clé d'API
 const int   ID_CAPTEUR    = 1;
 
 #define MODE_HTTP          // commentez cette ligne et décommentez la suivante pour utiliser MQTT
 // #define MODE_MQTT
-const char* MQTT_HOST = "192.168.1.20";   // broker Mosquitto local, ou broker.hivemq.com pour un essai
+const char* MQTT_HOST = "smartwater.mondomaine.com";   // votre domaine (Docker) ou l'IP du PC en local
 const int   MQTT_PORT = 1883;
+const char* MQTT_USER = "esp32";                       // MQTT_USER du fichier .env du serveur
+const char* MQTT_PASS = "MOT_DE_PASSE_MQTT";           // MQTT_PASSWORD du fichier .env du serveur
 // --------------------------------
 
 const int PIN_TRIG = 5;
@@ -68,7 +74,16 @@ void connecterWifi() {
 #ifdef MODE_HTTP
 void envoyer(float distance) {
   HTTPClient http;
-  http.begin(API_URL);
+  WiFiClientSecure clientTLS;
+  WiFiClient clientSimple;
+  if (String(API_URL).startsWith("https")) {
+    // Chiffrement HTTPS sans vérification du certificat (simple pour un projet étudiant).
+    // Pour plus de sécurité : clientTLS.setCACert(<certificat racine ISRG Root X1 de Let's Encrypt>).
+    clientTLS.setInsecure();
+    http.begin(clientTLS, API_URL);
+  } else {
+    http.begin(clientSimple, API_URL);
+  }
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-API-Key", API_KEY);
   String corps = String("{\"distance_cm\":") + String(distance, 1) + "}";
@@ -88,7 +103,7 @@ void envoyer(float distance) {
   if (!mqtt.connected()) {
     mqtt.setServer(MQTT_HOST, MQTT_PORT);
     String id = "esp32-smartwater-" + String(ID_CAPTEUR);
-    if (!mqtt.connect(id.c_str())) { Serial.println("MQTT : connexion impossible"); return; }
+    if (!mqtt.connect(id.c_str(), MQTT_USER, MQTT_PASS)) { Serial.println("MQTT : connexion impossible"); return; }
   }
   char topic[64];
   snprintf(topic, sizeof topic, "smartwater/capteurs/%d/mesure", ID_CAPTEUR);

@@ -3,3 +3,5 @@ djangorestframework>=3.16
 mysqlclient>=2.2
 paho-mqtt>=2.1
 cryptography>=44
+gunicorn>=23
+whitenoise>=6.9

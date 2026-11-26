@@ -8,3 +8,4 @@ staticfiles/
 *.log
 .vscode/
 .idea/
+sauvegardes/
