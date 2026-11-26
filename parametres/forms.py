@@ -5,7 +5,7 @@ from django import forms
 from accounts.models import Utilisateur
 from reservoirs.models import Capteur
 
-from .models import ConfigurationEmail
+from .models import ConfigurationEmail, LiaisonThingSpeak
 
 
 class NotificationsForm(forms.ModelForm):
@@ -62,3 +62,39 @@ class ConfigurationEmailForm(forms.ModelForm):
         if commit:
             conf.save()
         return conf
+
+
+class ThingSpeakForm(forms.ModelForm):
+    cle_ecriture = forms.CharField(label="Clé d'écriture (Write API Key)", required=False, strip=True,
+                                   widget=forms.PasswordInput(render_value=False, attrs={'autocomplete': 'off'}))
+    cle_lecture = forms.CharField(label='Clé de lecture (Read API Key, canal privé)', required=False, strip=True,
+                                  widget=forms.PasswordInput(render_value=False, attrs={'autocomplete': 'off'}))
+
+    class Meta:
+        model = LiaisonThingSpeak
+        fields = ['actif', 'canal_id', 'intervalle_s']
+
+    def clean_intervalle_s(self):
+        v = self.cleaned_data['intervalle_s']
+        if v < LiaisonThingSpeak.INTERVALLE_MIN:
+            raise forms.ValidationError('15 secondes minimum : c’est la limite de l’offre gratuite ThingSpeak.')
+        return v
+
+    def clean(self):
+        data = super().clean()
+        for nom in ('cle_ecriture', 'cle_lecture'):
+            cle = data.get(nom) or ''
+            if cle and not re.fullmatch(r'[A-Z0-9]{16}', cle.upper()):
+                self.add_error(nom, 'Une clé ThingSpeak contient 16 lettres et chiffres.')
+            data[nom] = cle.upper()
+        if data.get('actif') and not data.get('cle_ecriture') and not self.instance.cle_ecriture_chiffree:
+            self.add_error('cle_ecriture', "La clé d'écriture est obligatoire pour activer le relais.")
+        return data
+
+    def save(self, commit=True):
+        liaison = super().save(commit=False)
+        liaison.definir_cles(ecriture=self.cleaned_data.get('cle_ecriture') or None,
+                             lecture=self.cleaned_data.get('cle_lecture') or None)
+        if commit:
+            liaison.save()
+        return liaison

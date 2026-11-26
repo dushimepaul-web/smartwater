@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from reservoirs.forms import SeuilsForm
 from reservoirs.models import Reservoir
@@ -11,8 +12,9 @@ from reservoirs.models import Reservoir
 from alertes.notifications import envoyer_email, envoyer_ntfy
 
 from .email_backend import mode_envoi
-from .forms import AppareilForm, ConfigurationEmailForm, NotificationsForm
-from .models import ConfigurationEmail
+from . import thingspeak
+from .forms import AppareilForm, ConfigurationEmailForm, NotificationsForm, ThingSpeakForm
+from .models import ConfigurationEmail, LiaisonThingSpeak
 
 
 @login_required
@@ -34,6 +36,16 @@ def index(request):
         return redirect(request.path)
     if section == 'test_smtp':
         return tester_smtp(request)
+
+    liaison = LiaisonThingSpeak.objects.filter(capteur=capteur).first() if capteur else None
+    if section in ('ts_test', 'ts_import'):
+        return actions_thingspeak(request, section, liaison, choisi)
+    ts = ThingSpeakForm(request.POST if section == 'thingspeak' else None,
+                        instance=liaison or LiaisonThingSpeak(capteur=capteur)) if capteur else None
+    if section == 'thingspeak' and ts is not None and ts.is_valid():
+        ts.save()
+        messages.success(request, 'Liaison ThingSpeak enregistrée (clés chiffrées). Cliquez sur « Tester » pour vérifier.')
+        return redirect(f'{request.path}?reservoir={choisi.pk}#thingspeak')
 
     smtp = None
     if request.user.est_admin:
@@ -59,6 +71,7 @@ def index(request):
         'onglet': section or 'seuils',
         'topic_suggere': request.user.ntfy_topic or f'smartwater-{secrets.token_hex(6)}',
         'email_reel': mode_envoi()[0] != 'console',
+        'ts': ts, 'liaison': liaison,
         'smtp': smtp, 'smtp_conf': ConfigurationEmail.actuelle(), 'smtp_mode': mode_envoi()[0],
         'ntfy_serveur': settings.NTFY_SERVEUR,
     })
@@ -114,3 +127,35 @@ def tester_smtp(request):
             conseil = ''
         messages.error(request, f"Échec de l'envoi : {texte}.{conseil}")
     return redirect(f'{request.path}#smtp')
+
+
+
+def actions_thingspeak(request, section, liaison, choisi):
+    retour = redirect(f'{request.path}?reservoir={choisi.pk if choisi else ""}#thingspeak')
+    if not liaison:
+        messages.warning(request, 'Enregistrez d’abord le numéro du canal et la clé d’écriture.')
+        return retour
+    if section == 'ts_test':
+        mesure = liaison.capteur.mesures.order_by('-date_mesure').first()
+        if not mesure:
+            messages.warning(request, 'Aucune mesure à envoyer : lancez le capteur ou le simulateur.')
+            return retour
+        try:
+            numero = thingspeak.ecrire(liaison.cle_ecriture, thingspeak.champs_mesure(mesure))
+            liaison.dernier_envoi, liaison.dernier_resultat = timezone.now(), f'OK – entrée n° {numero}'
+            liaison.nb_envois += 1
+            liaison.save(update_fields=['dernier_envoi', 'dernier_resultat', 'nb_envois'])
+            messages.success(request, f'Connexion réussie : la dernière mesure ({mesure.niveau_pct:.0f} %) '
+                                      f'est l’entrée n° {numero} du canal {liaison.canal_id}.')
+        except Exception as e:
+            messages.error(request, f'Échec de l’envoi vers ThingSpeak : {e}. Vérifiez la clé d’écriture et '
+                                    'attendez 15 s entre deux essais.')
+        return retour
+    try:
+        heures = min(720, max(1, int(request.POST.get('heures', 24))))
+        importees, ignorees = thingspeak.importer_mesures(liaison, heures=heures)
+        messages.success(request, f'{importees} mesure(s) récupérée(s) depuis ThingSpeak '
+                                  f'({ignorees} déjà présente(s) ou incomplète(s)).')
+    except Exception as e:
+        messages.error(request, f'Lecture du canal ThingSpeak impossible : {e}')
+    return retour

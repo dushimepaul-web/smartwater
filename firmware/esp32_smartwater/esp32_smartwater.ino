@@ -36,6 +36,11 @@ const char* MQTT_HOST = "smartwater.mondomaine.com";   // votre domaine (Docker)
 const int   MQTT_PORT = 1883;
 const char* MQTT_USER = "esp32";                       // MQTT_USER du fichier .env du serveur
 const char* MQTT_PASS = "MOT_DE_PASSE_MQTT";           // MQTT_PASSWORD du fichier .env du serveur
+// Secours facultatif : envoyer AUSSI directement à ThingSpeak (si le serveur est en panne,
+// les mesures restent sur ThingSpeak ; Paramètres > ThingSpeak > « Récupérer les mesures manquantes »).
+// #define THINGSPEAK_DIRECT
+const char* TS_WRITE_KEY = "CLE_ECRITURE_THINGSPEAK";   // 16 caractères, onglet « API Keys » du canal
+const float HAUTEUR_CM   = 100.0;                         // même valeur que dans SmartWater
 // --------------------------------
 
 const int PIN_TRIG = 5;
@@ -113,6 +118,26 @@ void envoyer(float distance) {
 }
 #endif
 
+#ifdef THINGSPEAK_DIRECT
+unsigned long dernierEnvoiTS = 0;
+void envoyerThingSpeak(float distance) {
+  if (dernierEnvoiTS && millis() - dernierEnvoiTS < 20000UL) return;   // offre gratuite : 15 s minimum
+  float niveau = (HAUTEUR_CM - distance) / HAUTEUR_CM * 100.0;
+  if (niveau < 0) niveau = 0;
+  if (niveau > 100) niveau = 100;
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  http.begin(client, "https://api.thingspeak.com/update");
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  String corps = String("api_key=") + TS_WRITE_KEY + "&field1=" + String(niveau, 1) + "&field2=" + String(distance, 1);
+  int code = http.POST(corps);
+  Serial.printf("ThingSpeak %d : entrée %s\n", code, http.getString().c_str());   // « 0 » = refusé
+  http.end();
+  dernierEnvoiTS = millis();
+}
+#endif
+
 void setup() {
   Serial.begin(115200);
   pinMode(PIN_TRIG, OUTPUT);
@@ -125,7 +150,12 @@ void loop() {
   float d = mesurerDistanceCm();
   if (d > 0) {
     Serial.printf("Distance : %.1f cm\n", d);
-    if (WiFi.status() == WL_CONNECTED) envoyer(d);
+    if (WiFi.status() == WL_CONNECTED) {
+      envoyer(d);
+#ifdef THINGSPEAK_DIRECT
+      envoyerThingSpeak(d);
+#endif
+    }
   } else {
     Serial.println("Aucun écho : vérifiez le câblage du capteur");
   }

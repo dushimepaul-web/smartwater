@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from alertes.models import Alerte
 from alertes.notifications import notifier_alerte
+from parametres.thingspeak import relayer_mesure
 
 from .models import Capteur, Mesure
 
@@ -67,4 +68,6 @@ def enregistrer_mesure(capteur: Capteur, distance_cm, date=None):
 
     if alerte:
         transaction.on_commit(lambda: notifier_alerte(alerte))
+    # copie vers ThingSpeak si ce capteur y est relié (Paramètres > ThingSpeak)
+    transaction.on_commit(lambda: relayer_mesure(mesure))
     return mesure, alerte

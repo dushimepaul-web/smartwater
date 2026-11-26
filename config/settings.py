@@ -221,3 +221,4 @@ LOGGING = {
     'root': {'handlers': ['console'], 'level': env('DJANGO_LOG_LEVEL', 'INFO')},
     'loggers': {'django.server': {'level': 'WARNING'}},
 }
+THINGSPEAK_API = env("THINGSPEAK_API", "https://api.thingspeak.com")

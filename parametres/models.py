@@ -62,3 +62,62 @@ class ConfigurationEmail(models.Model):
     @property
     def adresse_expediteur(self):
         return f'{self.expediteur} <{self.utilisateur}>'
+
+
+class LiaisonThingSpeak(models.Model):
+    """Copie des mesures d'un capteur vers un canal ThingSpeak (table `thingspeak`).
+
+    Champs du canal : field1 = niveau (%), field2 = distance (cm), field3 = volume (L).
+    Les clés d'API sont chiffrées comme le mot de passe e-mail.
+    """
+    INTERVALLE_MIN = 15  # limite de l'offre gratuite ThingSpeak
+
+    id_liaison = models.AutoField(primary_key=True)
+    capteur = models.OneToOneField('reservoirs.Capteur', on_delete=models.CASCADE, db_column='id_capteur',
+                                   related_name='thingspeak')
+    actif = models.BooleanField('relais activé', default=True)
+    canal_id = models.PositiveIntegerField('numéro du canal (Channel ID)')
+    cle_ecriture_chiffree = models.TextField(blank=True, default='', db_column='cle_ecriture')
+    cle_lecture_chiffree = models.TextField(blank=True, default='', db_column='cle_lecture')
+    intervalle_s = models.PositiveIntegerField("intervalle minimum entre deux envois (s)", default=20)
+    dernier_envoi = models.DateTimeField(null=True, blank=True)
+    dernier_resultat = models.CharField(max_length=255, blank=True, default='')
+    nb_envois = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'thingspeak'
+        verbose_name = 'liaison ThingSpeak'
+
+    def __str__(self):
+        return f'Canal {self.canal_id} ← capteur {self.capteur_id}'
+
+    @staticmethod
+    def _chiffrer(texte):
+        return _fernet().encrypt(texte.encode()).decode() if texte else ''
+
+    @staticmethod
+    def _dechiffrer(texte):
+        if not texte:
+            return ''
+        try:
+            return _fernet().decrypt(texte.encode()).decode()
+        except InvalidToken:
+            return ''
+
+    def definir_cles(self, ecriture=None, lecture=None):
+        if ecriture is not None:
+            self.cle_ecriture_chiffree = self._chiffrer(ecriture)
+        if lecture is not None:
+            self.cle_lecture_chiffree = self._chiffrer(lecture)
+
+    @property
+    def cle_ecriture(self):
+        return self._dechiffrer(self.cle_ecriture_chiffree)
+
+    @property
+    def cle_lecture(self):
+        return self._dechiffrer(self.cle_lecture_chiffree)
+
+    @property
+    def url_canal(self):
+        return f'https://thingspeak.mathworks.com/channels/{self.canal_id}'

@@ -1,7 +1,7 @@
 -- =====================================================================
 --  SmartWater IoT – base de données MySQL (cohérente avec le cahier des charges)
 --  6 tables métier : roles, utilisateurs, reservoirs, capteurs, mesures, alertes
---  + configuration_email (serveur SMTP, mot de passe chiffré)
+--  + configuration_email (serveur SMTP) et thingspeak (relais), secrets chiffrés
 --  + tables techniques de Django (sessions, admin, migrations).
 --
 --  Méthode recommandée : créer une base vide `smartwater` puis lancer
@@ -92,7 +92,7 @@ CREATE TABLE `auth_permission` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `auth_permission_content_type_id_codename_01ab375a_uniq` (`content_type_id`,`codename`),
   CONSTRAINT `auth_permission_content_type_id_2f476e4b_fk_django_co` FOREIGN KEY (`content_type_id`) REFERENCES `django_content_type` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=53 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 LOCK TABLES `auth_permission` WRITE;
@@ -145,7 +145,11 @@ INSERT INTO `auth_permission` VALUES
 (45,'Can add configuration e-mail',12,'add_configurationemail'),
 (46,'Can change configuration e-mail',12,'change_configurationemail'),
 (47,'Can delete configuration e-mail',12,'delete_configurationemail'),
-(48,'Can view configuration e-mail',12,'view_configurationemail');
+(48,'Can view configuration e-mail',12,'view_configurationemail'),
+(49,'Can add liaison ThingSpeak',13,'add_liaisonthingspeak'),
+(50,'Can change liaison ThingSpeak',13,'change_liaisonthingspeak'),
+(51,'Can delete liaison ThingSpeak',13,'delete_liaisonthingspeak'),
+(52,'Can view liaison ThingSpeak',13,'view_liaisonthingspeak');
 /*!40000 ALTER TABLE `auth_permission` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `capteurs`;
@@ -230,7 +234,7 @@ CREATE TABLE `django_content_type` (
   `model` varchar(100) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `django_content_type_app_label_model_76bd3d3b_uniq` (`app_label`,`model`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 LOCK TABLES `django_content_type` WRITE;
@@ -243,6 +247,7 @@ INSERT INTO `django_content_type` VALUES
 (3,'auth','permission'),
 (4,'contenttypes','contenttype'),
 (12,'parametres','configurationemail'),
+(13,'parametres','liaisonthingspeak'),
 (8,'reservoirs','capteur'),
 (9,'reservoirs','mesure'),
 (10,'reservoirs','reservoir'),
@@ -259,37 +264,38 @@ CREATE TABLE `django_migrations` (
   `name` varchar(255) NOT NULL,
   `applied` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 LOCK TABLES `django_migrations` WRITE;
 /*!40000 ALTER TABLE `django_migrations` DISABLE KEYS */;
 INSERT INTO `django_migrations` VALUES
-(1,'roles','0001_initial','2026-11-26 00:49:37.201343'),
-(2,'accounts','0001_initial','2026-11-26 00:49:37.213823'),
-(3,'accounts','0002_notifications_telephone','2026-11-26 00:49:37.223688'),
-(4,'contenttypes','0001_initial','2026-11-26 00:49:37.231197'),
-(5,'admin','0001_initial','2026-11-26 00:49:37.244999'),
-(6,'admin','0002_logentry_remove_auto_add','2026-11-26 00:49:37.247410'),
-(7,'admin','0003_logentry_add_action_flag_choices','2026-11-26 00:49:37.249858'),
-(8,'reservoirs','0001_initial','2026-11-26 00:49:37.286244'),
-(9,'alertes','0001_initial','2026-11-26 00:49:37.297843'),
-(10,'contenttypes','0002_remove_content_type_name','2026-11-26 00:49:37.313563'),
-(11,'auth','0001_initial','2026-11-26 00:49:37.354302'),
-(12,'auth','0002_alter_permission_name_max_length','2026-11-26 00:49:37.363522'),
-(13,'auth','0003_alter_user_email_max_length','2026-11-26 00:49:37.366046'),
-(14,'auth','0004_alter_user_username_opts','2026-11-26 00:49:37.368674'),
-(15,'auth','0005_alter_user_last_login_null','2026-11-26 00:49:37.371839'),
-(16,'auth','0006_require_contenttypes_0002','2026-11-26 00:49:37.372701'),
-(17,'auth','0007_alter_validators_add_error_messages','2026-11-26 00:49:37.376828'),
-(18,'auth','0008_alter_user_username_max_length','2026-11-26 00:49:37.380966'),
-(19,'auth','0009_alter_user_last_name_max_length','2026-11-26 00:49:37.385754'),
-(20,'auth','0010_alter_group_name_max_length','2026-11-26 00:49:37.395661'),
-(21,'auth','0011_update_proxy_permissions','2026-11-26 00:49:37.403454'),
-(22,'auth','0012_alter_user_first_name_max_length','2026-11-26 00:49:37.407465'),
-(23,'parametres','0001_configuration_email','2026-11-26 00:49:37.423561'),
-(24,'roles','0002_roles_par_defaut','2026-11-26 00:49:37.436392'),
-(25,'sessions','0001_initial','2026-11-26 00:49:37.445613');
+(1,'roles','0001_initial','2026-11-26 01:16:47.958675'),
+(2,'accounts','0001_initial','2026-11-26 01:16:47.971281'),
+(3,'accounts','0002_notifications_telephone','2026-11-26 01:16:47.981686'),
+(4,'contenttypes','0001_initial','2026-11-26 01:16:47.990284'),
+(5,'admin','0001_initial','2026-11-26 01:16:48.005950'),
+(6,'admin','0002_logentry_remove_auto_add','2026-11-26 01:16:48.008812'),
+(7,'admin','0003_logentry_add_action_flag_choices','2026-11-26 01:16:48.011239'),
+(8,'reservoirs','0001_initial','2026-11-26 01:16:48.046928'),
+(9,'alertes','0001_initial','2026-11-26 01:16:48.057597'),
+(10,'contenttypes','0002_remove_content_type_name','2026-11-26 01:16:48.072920'),
+(11,'auth','0001_initial','2026-11-26 01:16:48.114917'),
+(12,'auth','0002_alter_permission_name_max_length','2026-11-26 01:16:48.123985'),
+(13,'auth','0003_alter_user_email_max_length','2026-11-26 01:16:48.127029'),
+(14,'auth','0004_alter_user_username_opts','2026-11-26 01:16:48.130556'),
+(15,'auth','0005_alter_user_last_login_null','2026-11-26 01:16:48.134296'),
+(16,'auth','0006_require_contenttypes_0002','2026-11-26 01:16:48.135197'),
+(17,'auth','0007_alter_validators_add_error_messages','2026-11-26 01:16:48.138135'),
+(18,'auth','0008_alter_user_username_max_length','2026-11-26 01:16:48.141398'),
+(19,'auth','0009_alter_user_last_name_max_length','2026-11-26 01:16:48.144926'),
+(20,'auth','0010_alter_group_name_max_length','2026-11-26 01:16:48.155290'),
+(21,'auth','0011_update_proxy_permissions','2026-11-26 01:16:48.164149'),
+(22,'auth','0012_alter_user_first_name_max_length','2026-11-26 01:16:48.168638'),
+(23,'parametres','0001_configuration_email','2026-11-26 01:16:48.185340'),
+(24,'parametres','0002_liaison_thingspeak','2026-11-26 01:16:48.209119'),
+(25,'roles','0002_roles_par_defaut','2026-11-26 01:16:48.224715'),
+(26,'sessions','0001_initial','2026-11-26 01:16:48.232561');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `django_session`;
@@ -369,10 +375,34 @@ CREATE TABLE `roles` (
 LOCK TABLES `roles` WRITE;
 /*!40000 ALTER TABLE `roles` DISABLE KEYS */;
 INSERT INTO `roles` VALUES
-(1,'admin','Administrateur','Accès complet au système',1,'2026-11-26 00:49:37.433453'),
-(2,'utilisateur','Utilisateur','Consulte et gère ses propres réservoirs',0,'2026-11-26 00:49:37.435237'),
-(3,'technicien','Technicien','Installe et entretient les capteurs de ses réservoirs',0,'2026-11-26 00:49:37.867826');
+(1,'admin','Administrateur','Accès complet au système',1,'2026-11-26 01:16:48.221265'),
+(2,'utilisateur','Utilisateur','Consulte et gère ses propres réservoirs',0,'2026-11-26 01:16:48.223259'),
+(3,'technicien','Technicien','Installe et entretient les capteurs de ses réservoirs',0,'2026-11-26 01:16:48.627405');
 /*!40000 ALTER TABLE `roles` ENABLE KEYS */;
+UNLOCK TABLES;
+DROP TABLE IF EXISTS `thingspeak`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `thingspeak` (
+  `id_liaison` int(11) NOT NULL AUTO_INCREMENT,
+  `actif` tinyint(1) NOT NULL,
+  `canal_id` int(10) unsigned NOT NULL CHECK (`canal_id` >= 0),
+  `cle_ecriture` longtext NOT NULL,
+  `cle_lecture` longtext NOT NULL,
+  `intervalle_s` int(10) unsigned NOT NULL CHECK (`intervalle_s` >= 0),
+  `dernier_envoi` datetime(6) DEFAULT NULL,
+  `dernier_resultat` varchar(255) NOT NULL,
+  `nb_envois` int(10) unsigned NOT NULL CHECK (`nb_envois` >= 0),
+  `id_capteur` int(11) NOT NULL,
+  PRIMARY KEY (`id_liaison`),
+  UNIQUE KEY `id_capteur` (`id_capteur`),
+  CONSTRAINT `thingspeak_id_capteur_01113089_fk_capteurs_id_capteur` FOREIGN KEY (`id_capteur`) REFERENCES `capteurs` (`id_capteur`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `thingspeak` WRITE;
+/*!40000 ALTER TABLE `thingspeak` DISABLE KEYS */;
+/*!40000 ALTER TABLE `thingspeak` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `utilisateurs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -400,7 +430,7 @@ CREATE TABLE `utilisateurs` (
 LOCK TABLES `utilisateurs` WRITE;
 /*!40000 ALTER TABLE `utilisateurs` DISABLE KEYS */;
 INSERT INTO `utilisateurs` VALUES
-(1,'Administrateur','admin@smartwater.local','pbkdf2_sha256$1500000$B6ISjovNzUTSD5aWe3uV1A$/bPSFqkdVuwD+HvKd/q20uMNDryA8EgfWGPBKucMTOE=',1,NULL,'2026-11-26 00:49:38.079867',1,0,0,1,'');
+(1,'Administrateur','admin@smartwater.local','pbkdf2_sha256$1500000$3DafVddsyl4L9j5b89Qrf6$jBEgheYqCqp2E6wNmsFkkd7j9jumJbDEUBrTNmiqu/c=',1,NULL,'2026-11-26 01:16:48.858145',1,0,0,1,'');
 /*!40000 ALTER TABLE `utilisateurs` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

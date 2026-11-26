@@ -152,6 +152,29 @@ Le téléphone reçoit alors toutes les alertes :
 ⚠️ Sur ntfy.sh, toute personne qui connaît le nom du sujet peut lire les messages : gardez-le secret.
 Pour plus de confidentialité, vous pouvez installer votre propre serveur ntfy et renseigner `NTFY_SERVEUR` et `NTFY_TOKEN`.
 
+## Copie vers ThingSpeak (facultatif)
+
+[ThingSpeak](https://thingspeak.mathworks.com) est un service IoT gratuit pour les petits projets non commerciaux. SmartWater peut y recopier chaque mesure : vous obtenez des graphiques en ligne et une copie de secours.
+
+1. Créez un compte, puis un **canal** (Channels → New Channel) avec trois champs : `Field 1` = Niveau (%), `Field 2` = Distance (cm), `Field 3` = Volume (L).
+2. Notez le **Channel ID** et, dans l'onglet *API Keys*, la **Write API Key**. Si le canal est privé, notez aussi la **Read API Key**.
+3. Dans SmartWater, ouvrez **Paramètres → ThingSpeak** (pour le réservoir choisi), saisissez ces valeurs, puis cliquez sur **Enregistrer**, puis sur **Tester**.
+
+Le comportement :
+- chaque mesure reçue est recopiée, au plus une fois toutes les 20 s (15 s minimum : c'est la limite de l'offre gratuite, 3 millions de messages par an) ;
+- les clés sont chiffrées dans la base (table `thingspeak`) ;
+- une panne de ThingSpeak ne bloque jamais la réception des mesures.
+
+**Secours si le serveur tombe :**
+1. Dans le firmware ESP32, décommentez `#define THINGSPEAK_DIRECT` et renseignez `TS_WRITE_KEY` et `HAUTEUR_CM`. L'ESP32 enverra aussi ses mesures directement à ThingSpeak.
+2. Une fois le serveur revenu, cliquez sur **Paramètres → ThingSpeak → Récupérer les mesures manquantes**, ou lancez :
+
+```bat
+python manage.py importer_thingspeak --heures 24
+```
+
+Les doublons sont ignorés.
+
 ## Tests
 
 ```bat
@@ -335,6 +358,11 @@ chmod +x docker/sauvegarde.sh
 
 crontab -e                                   # sauvegarde automatique chaque nuit à 2 h :
 0 2 * * * cd /opt/smartwater && ./docker/sauvegarde.sh >> sauvegardes/journal.log 2>&1
+```
+
+Si l'ESP32 envoie aussi directement à ThingSpeak, vous pouvez récupérer automatiquement chaque heure les mesures manquantes (`crontab -e`) :
+```bash
+0 * * * * cd /opt/smartwater && docker compose exec -T web python manage.py importer_thingspeak --heures 2
 ```
 
 Pour restaurer une sauvegarde :

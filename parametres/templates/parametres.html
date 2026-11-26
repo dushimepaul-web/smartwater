@@ -2,7 +2,7 @@
 {% block titre_page %}<svg class="i"><use href="#i-gear"/></svg>Paramètres du système{% endblock %}
 {% block content %}
 {% if reservoirs|length > 1 %}<form class="row" method="get" style="margin:-44px 0 16px;justify-content:flex-end"><select class="sm" name="reservoir" onchange="this.form.submit()" style="background:#fff">{% for x in reservoirs %}<option value="{{ x.pk }}" {% if x.pk == choisi.pk %}selected{% endif %}>{{ x.nom }}</option>{% endfor %}</select></form>{% endif %}
-<div class="tabs"><button type="button" class="{% if onglet == 'seuils' %}on{% endif %}" data-pane="seuils">Seuils d’alerte</button><button type="button" class="{% if onglet == 'notifications' %}on{% endif %}" data-pane="notifications">Notifications</button><button type="button" class="{% if onglet == 'appareil' %}on{% endif %}" data-pane="appareil">Appareil</button>{% if smtp %}<button type="button" class="{% if onglet == 'smtp' %}on{% endif %}" data-pane="smtp">E-mail (SMTP)</button>{% endif %}</div>
+<div class="tabs"><button type="button" class="{% if onglet == 'seuils' %}on{% endif %}" data-pane="seuils">Seuils d’alerte</button><button type="button" class="{% if onglet == 'notifications' %}on{% endif %}" data-pane="notifications">Notifications</button><button type="button" class="{% if onglet == 'appareil' %}on{% endif %}" data-pane="appareil">Appareil</button>{% if ts %}<button type="button" class="{% if onglet == 'thingspeak' %}on{% endif %}" data-pane="thingspeak">ThingSpeak</button>{% endif %}{% if smtp %}<button type="button" class="{% if onglet == 'smtp' %}on{% endif %}" data-pane="smtp">E-mail (SMTP)</button>{% endif %}</div>
 
 <div class="pane {% if onglet == 'seuils' %}on{% endif %}" id="seuils"><div class="card">
 {% if seuils %}<form method="post">{% csrf_token %}<input type="hidden" name="section" value="seuils"><input type="hidden" name="reservoir" value="{{ choisi.pk }}">
@@ -34,6 +34,26 @@
 <p class="help">La clé d’API et l’adresse d’envoi de l’ESP32 se trouvent dans <a href="{% url 'reservoir_modifier' choisi.pk %}">Réservoirs › Modifier</a>.</p>
 <div style="margin-top:18px"><button class="btn" type="submit"><svg class="i"><use href="#i-check"/></svg>Enregistrer</button></div></form>
 {% else %}<div class="empty">Aucun capteur.</div>{% endif %}</div></div>
+{% if ts %}<div class="pane {% if onglet == 'thingspeak' %}on{% endif %}" id="thingspeak"><div class="card">
+<div class="row between"><h3>Copie des mesures vers ThingSpeak – {{ choisi.nom }}</h3>
+{% if liaison and liaison.actif %}<span class="badge">Relais actif</span>{% elif liaison %}<span class="badge off">Relais désactivé</span>{% else %}<span class="badge warn">Non configuré</span>{% endif %}</div>
+<p class="help">Chaque mesure reçue est recopiée sur votre canal ThingSpeak (graphiques en ligne et copie de secours) : <b>field1</b> = niveau (%), <b>field2</b> = distance (cm), <b>field3</b> = volume (L). Offre gratuite : un envoi toutes les 15 s au plus et 3 millions de messages par an — 20 à 60 s suffisent pour un réservoir.</p>
+<form method="post" novalidate>{% csrf_token %}<input type="hidden" name="section" value="thingspeak"><input type="hidden" name="reservoir" value="{{ choisi.pk }}">{{ ts.non_field_errors }}
+<div class="fg">
+<div><label class="f" for="id_canal_id">Numéro du canal (Channel ID)</label><input type="number" name="canal_id" id="id_canal_id" value="{{ ts.canal_id.value|default:''|unlocalize }}" placeholder="ex. 2345678">{{ ts.canal_id.errors }}</div>
+<div><label class="f" for="id_intervalle_s">Intervalle minimum entre deux envois (s)</label><input type="number" min="15" name="intervalle_s" id="id_intervalle_s" value="{{ ts.intervalle_s.value|default:20|unlocalize }}">{{ ts.intervalle_s.errors }}</div>
+<div><label class="f" for="id_cle_ecriture">Clé d’écriture (Write API Key)</label><input type="password" name="cle_ecriture" id="id_cle_ecriture" autocomplete="off" placeholder="{% if liaison.cle_ecriture_chiffree %}•••••••••••••••• (enregistrée – vide = la garder){% else %}16 caractères{% endif %}">{{ ts.cle_ecriture.errors }}</div>
+<div><label class="f" for="id_cle_lecture">Clé de lecture (seulement si le canal est privé)</label><input type="password" name="cle_lecture" id="id_cle_lecture" autocomplete="off" placeholder="{% if liaison.cle_lecture_chiffree %}•••••••••••••••• (enregistrée){% else %}facultative{% endif %}">{{ ts.cle_lecture.errors }}</div>
+</div>
+<div class="opt"><span>Envoyer automatiquement chaque mesure vers ThingSpeak</span><label class="switch"><input type="checkbox" name="actif" {% if ts.actif.value %}checked{% endif %}><i></i></label></div>
+<div style="margin-top:8px"><button class="btn" type="submit"><svg class="i"><use href="#i-check"/></svg>Enregistrer</button></div></form>
+{% if liaison %}<p class="help" style="margin-top:14px">Envois réussis : <b>{{ liaison.nb_envois }}</b>{% if liaison.dernier_envoi %} · dernier essai : {{ liaison.dernier_envoi|date:"d/m/Y H:i:s" }} – {{ liaison.dernier_resultat|default:"en cours" }}{% endif %} · <a href="{{ liaison.url_canal }}" target="_blank" rel="noopener">ouvrir le canal sur ThingSpeak</a></p>
+<div class="row" style="gap:8px;margin-top:8px">
+<form method="post" class="inline">{% csrf_token %}<input type="hidden" name="section" value="ts_test"><input type="hidden" name="reservoir" value="{{ choisi.pk }}"><button class="btn ghost" type="submit"><svg class="i"><use href="#i-arrow"/></svg>Tester (envoyer la dernière mesure)</button></form>
+<form method="post" class="row" style="gap:8px">{% csrf_token %}<input type="hidden" name="section" value="ts_import"><input type="hidden" name="reservoir" value="{{ choisi.pk }}"><select name="heures" class="sm"><option value="1">dernière heure</option><option value="24" selected>24 dernières heures</option><option value="168">7 derniers jours</option><option value="720">30 derniers jours</option></select><button class="btn ghost" type="submit"><svg class="i"><use href="#i-dl"/></svg>Récupérer les mesures manquantes</button></form>
+</div>
+<p class="help">« Récupérer » ajoute les mesures présentes sur ThingSpeak mais absentes ici (par exemple envoyées directement par l’ESP32 pendant une panne du serveur). Les doublons sont ignorés.</p>{% endif %}
+</div></div>{% endif %}
 {% if smtp %}<div class="pane {% if onglet == 'smtp' %}on{% endif %}" id="smtp"><div class="card">
 <div class="row between"><h3>Serveur d’envoi des e-mails</h3>
 {% if smtp_mode == 'base' %}<span class="badge">Envoi réel actif</span>{% elif smtp_mode == 'env' %}<span class="badge info">Configuré par le fichier .env</span>{% else %}<span class="badge warn">Non configuré : e-mails affichés dans la console</span>{% endif %}</div>

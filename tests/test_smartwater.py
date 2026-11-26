@@ -432,3 +432,148 @@ class ConfigurationEmailTests(Base):
             r = self.client.post(reverse('parametres'), {'section': 'test_smtp', 'destinataire': 'a@b.bi'}, follow=True)
         envoi.assert_called_once()
         self.assertContains(r, 'E-mail de test envoyé à a@b.bi')
+
+
+# ---------------------------------------------------------------- ThingSpeak
+import json as _json
+import threading as _threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlparse
+
+
+class FauxThingSpeak(BaseHTTPRequestHandler):
+    """Imite l'API ThingSpeak documentée : POST /update -> n° d'entrée ou 0 ; GET /channels/<id>/feeds.json."""
+    CLE, CANAL = 'ABCDEFGH12345678', 4242
+    entrees, dernier = [], [0.0]
+
+    def log_message(self, *a):
+        pass
+
+    def do_POST(self):
+        import time
+        donnees = parse_qs(self.rfile.read(int(self.headers['Content-Length'])).decode())
+        ok = donnees.get('api_key', [''])[0] == self.CLE and time.time() - self.dernier[0] >= 15
+        if ok:
+            self.dernier[0] = time.time()
+            self.entrees.append({'entry_id': len(self.entrees) + 1, 'created_at': timezone.now().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                                 **{k: v[0] for k, v in donnees.items() if k.startswith('field')}})
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(str(len(self.entrees) if ok else 0).encode())
+
+    def do_GET(self):
+        u = urlparse(self.path)
+        if u.path != f'/channels/{self.CANAL}/feeds.json':
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(_json.dumps({'channel': {'id': self.CANAL}, 'feeds': self.entrees}).encode())
+
+
+class ThingSpeakTests(Base):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.serveur = HTTPServer(('127.0.0.1', 0), FauxThingSpeak)
+        _threading.Thread(target=cls.serveur.serve_forever, daemon=True).start()
+        cls.api = f'http://127.0.0.1:{cls.serveur.server_port}'
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.serveur.shutdown()
+        super().tearDownClass()
+
+    def setUp(self):
+        super().setUp()
+        FauxThingSpeak.entrees.clear()
+        FauxThingSpeak.dernier[0] = 0.0
+        self.reglages = self.settings(THINGSPEAK_API=self.api)
+        self.reglages.enable()
+        self.client.force_login(self.paul)
+
+    def tearDown(self):
+        self.reglages.disable()
+        super().tearDown()
+
+    def configurer(self, **extra):
+        donnees = {'section': 'thingspeak', 'reservoir': self.res.pk, 'actif': 'on', 'canal_id': 4242,
+                   'intervalle_s': 20, 'cle_ecriture': 'abcdefgh12345678'}
+        donnees.update(extra)
+        return self.client.post(reverse('parametres'), donnees, follow=True)
+
+    def test_configuration_cles_chiffrees(self):
+        from parametres.models import LiaisonThingSpeak
+        self.assertContains(self.client.get(reverse('parametres')), 'ThingSpeak')
+        self.assertContains(self.configurer(intervalle_s=5), '15 secondes minimum')
+        self.assertContains(self.configurer(cle_ecriture='trop-court'), '16 lettres et chiffres')
+        self.assertContains(self.configurer(), 'Liaison ThingSpeak enregistrée')
+        li = LiaisonThingSpeak.objects.get()
+        self.assertEqual(li.cle_ecriture, 'ABCDEFGH12345678')
+        self.assertNotIn('ABCDEFGH', li.cle_ecriture_chiffree)
+        # un autre utilisateur ne voit pas ce capteur
+        self.client.force_login(self.autre)
+        self.assertNotContains(self.client.get(reverse('parametres')), 'Canal 4242')
+
+    def test_relais_automatique_et_limite_15s(self):
+        from parametres.models import LiaisonThingSpeak
+        from parametres.thingspeak import relayer_mesure
+        self.configurer()
+        m1, _ = enregistrer_mesure(self.capteur, 45.5)
+        self.assertTrue(relayer_mesure(m1, en_arriere_plan=False))
+        self.assertEqual(FauxThingSpeak.entrees[0]['field1'], '54.5')
+        self.assertEqual(FauxThingSpeak.entrees[0]['field3'], '545')
+        m2, _ = enregistrer_mesure(self.capteur, 40)
+        self.assertFalse(relayer_mesure(m2, en_arriere_plan=False))   # moins de 20 s : pas d'envoi
+        li = LiaisonThingSpeak.objects.get()
+        self.assertEqual((li.nb_envois, li.dernier_resultat), (1, 'OK – entrée n° 1'))
+
+    def test_relais_declenche_par_la_reception(self):
+        self.configurer()
+        with mock.patch('alertes.notifications.threading.Thread', FilSynchrone), \
+             mock.patch('parametres.thingspeak.threading.Thread', FilSynchrone):
+            with self.captureOnCommitCallbacks(execute=True):
+                r = APIClient().post(reverse('api-envoi-mesure'), {'distance_cm': 30}, format='json',
+                                     HTTP_X_API_KEY=self.capteur.cle_api)
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(FauxThingSpeak.entrees[0]['field1'], '70.0')
+
+    def test_bouton_tester_et_mauvaise_cle(self):
+        enregistrer_mesure(self.capteur, 50)
+        self.configurer(actif='')
+        r = self.client.post(reverse('parametres'), {'section': 'ts_test', 'reservoir': self.res.pk}, follow=True)
+        self.assertContains(r, 'Connexion réussie')
+        self.configurer(cle_ecriture='ZZZZZZZZ00000000', actif='')
+        FauxThingSpeak.dernier[0] = 0.0
+        r = self.client.post(reverse('parametres'), {'section': 'ts_test', 'reservoir': self.res.pk}, follow=True)
+        self.assertContains(r, 'Échec de l’envoi vers ThingSpeak')
+
+    def test_recuperer_mesures_manquantes(self):
+        self.configurer(actif='')
+        maintenant = timezone.now()
+        enregistrer_mesure(self.capteur, 50)   # déjà en base : la copie ThingSpeak doit être ignorée
+        FauxThingSpeak.entrees.extend([
+            {'entry_id': 1, 'created_at': maintenant.strftime('%Y-%m-%dT%H:%M:%SZ'), 'field1': '50.0', 'field2': '50.0'},
+            {'entry_id': 2, 'created_at': (maintenant - timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%SZ'), 'field1': '80.0', 'field2': '20.0'},
+            {'entry_id': 3, 'created_at': (maintenant - timedelta(hours=3)).strftime('%Y-%m-%dT%H:%M:%SZ'), 'field1': '61.5'},
+            {'entry_id': 4, 'created_at': (maintenant - timedelta(hours=4)).strftime('%Y-%m-%dT%H:%M:%SZ')},
+        ])
+        r = self.client.post(reverse('parametres'), {'section': 'ts_import', 'reservoir': self.res.pk, 'heures': 24}, follow=True)
+        self.assertContains(r, '2 mesure(s) récupérée(s)')
+        niveaux = sorted(Mesure.objects.filter(capteur=self.capteur).values_list('niveau_pct', flat=True))
+        self.assertEqual(niveaux, [50.0, 61.5, 80.0])
+        # deuxième import : rien de nouveau
+        r = self.client.post(reverse('parametres'), {'section': 'ts_import', 'reservoir': self.res.pk, 'heures': 24}, follow=True)
+        self.assertContains(r, '0 mesure(s) récupérée(s)')
+
+    def test_commande_importer(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+        self.configurer(actif='')
+        FauxThingSpeak.entrees.append({'entry_id': 1, 'created_at': timezone.now().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                                       'field1': '33.0', 'field2': '67.0'})
+        sortie = StringIO()
+        call_command('importer_thingspeak', stdout=sortie)
+        self.assertIn('1 importée(s)', sortie.getvalue())
