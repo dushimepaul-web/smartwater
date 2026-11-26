@@ -140,26 +140,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 
 # --- E-mail (mot de passe oublié, alertes) ---------------------------------
-# Sans EMAIL_HOST : les e-mails s'affichent dans la console du serveur.
-# Avec Gmail : EMAIL_HOST=smtp.gmail.com, EMAIL_PORT=587, EMAIL_USER=votre@gmail.com,
-# EMAIL_PASSWORD=<mot de passe d'application à 16 lettres> (voir README).
-EMAIL_SMTP_ACTIF = bool(env('EMAIL_HOST'))
-if EMAIL_SMTP_ACTIF:
-    MAILERS = {
-        'default': {
-            'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
-            'OPTIONS': {
-                'host': env('EMAIL_HOST'),
-                'port': int(env('EMAIL_PORT', '587')),
-                'username': env('EMAIL_USER', ''),
-                'password': env('EMAIL_PASSWORD', ''),
-                'use_tls': env_bool('EMAIL_USE_TLS', True),
-                'timeout': 15,
-            },
-        },
-    }
-else:
-    MAILERS = {'default': {'BACKEND': 'django.core.mail.backends.console.EmailBackend'}}
+# La configuration se fait de préférence dans l'application :
+#   Paramètres > E-mail (SMTP)  (administrateur ; mot de passe chiffré dans la base).
+# Sinon, variables EMAIL_HOST... du fichier .env ; sinon affichage dans la console.
+EMAIL_ENV = {
+    'host': env('EMAIL_HOST', ''),
+    'port': int(env('EMAIL_PORT', '587')),
+    'username': env('EMAIL_USER', ''),
+    'password': env('EMAIL_PASSWORD', '').replace(' ', ''),
+    'use_tls': env_bool('EMAIL_USE_TLS', True),
+    'timeout': 15,
+}
+MAILERS = {'default': {'BACKEND': 'parametres.email_backend.EmailBackend'}}
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', f"SmartWater IoT <{env('EMAIL_USER') or 'no-reply@smartwater.local'}>")
 
 # Adresse publique du site (lien dans les e-mails et notifications)

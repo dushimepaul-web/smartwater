@@ -113,21 +113,21 @@ Protections : on ne peut pas supprimer son propre compte, et il reste toujours u
 
 Chaque utilisateur choisit ses canaux dans **Paramètres → Notifications**. Le bouton **Envoyer un test** vérifie la configuration.
 
-### E-mails réels (Gmail)
+### E-mails réels (Gmail) — dans l'application
+
+Connecté en **administrateur**, ouvrez **Paramètres → E-mail (SMTP)** :
 
 1. Activez la **validation en 2 étapes** du compte Google : https://myaccount.google.com/security
 2. Créez un **mot de passe d'application** : https://myaccount.google.com/apppasswords
-3. Dans `.env`, remplissez ces lignes, puis relancez `runserver` :
+3. Saisissez l'adresse Gmail et les 16 lettres (les espaces sont retirés automatiquement). Gardez `smtp.gmail.com`, le port `587` et STARTTLS.
+4. Cliquez sur **Enregistrer**, puis sur **Envoyer un e-mail de test**. En cas d'échec, la page affiche la cause.
 
-```ini
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
-EMAIL_USER=votre.adresse@gmail.com
-EMAIL_PASSWORD=abcdefghijklmnop
-```
+Le mot de passe est **chiffré** dans la table `configuration_email`, avec une clé dérivée de `DJANGO_SECRET_KEY`. Il n'est jamais réaffiché.
+⚠️ Si vous changez `DJANGO_SECRET_KEY`, ressaisissez le mot de passe.
 
-Sans `EMAIL_HOST`, les e-mails s'affichent dans la console du serveur. Les e-mails d'alerte partent pour les niveaux **bas** et **haut**.
+Autre possibilité : les variables `EMAIL_HOST`… du fichier `.env`. Elles ne servent que si rien n'est configuré dans l'application.
+Sans configuration, les e-mails s'affichent dans la console du serveur.
+Les e-mails d'alerte partent pour les niveaux **bas** et **haut**.
 
 ### Notifications sur le téléphone (ntfy)
 

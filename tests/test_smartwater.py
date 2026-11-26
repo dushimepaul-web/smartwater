@@ -2,7 +2,7 @@ from datetime import timedelta
 from unittest import mock
 
 from django.core import mail
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -356,13 +356,79 @@ class NotificationsTests(Base):
         self.assertEqual(len(mail.outbox), 1)
         envoi.assert_called_once()
 
-    @override_settings(MAILERS={'default': {'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
-                                            'OPTIONS': {'host': 'smtp.invalide.local', 'port': 587, 'timeout': 2}}},
-                       EMAIL_SMTP_ACTIF=True)
-    def test_echec_smtp_affiche(self):
+    def test_echec_envoi_affiche(self):
         self.paul.notif_push = False
         self.paul.save()
         self.client.force_login(self.paul)
-        with mock.patch('django.core.mail.backends.smtp.EmailBackend.send_messages', side_effect=OSError('refusé')):
+        with mock.patch('parametres.views.envoyer_email', side_effect=OSError('refusé')):
             r = self.client.post(reverse('parametres'), {'section': 'test'}, follow=True)
         self.assertContains(r, "Échec de l&#x27;envoi de l&#x27;e-mail")
+
+
+class ConfigurationEmailTests(Base):
+    MDP_APP = 'abcd efgh ijkl mnop'
+
+    def enregistrer(self, **extra):
+        donnees = {'section': 'smtp', 'actif': 'on', 'hote': 'smtp.gmail.com', 'port': 587, 'securite': 'tls',
+                   'utilisateur': 'boutique@gmail.com', 'expediteur': 'SmartWater IoT', 'mot_de_passe': self.MDP_APP}
+        donnees.update(extra)
+        return self.client.post(reverse('parametres'), donnees, follow=True)
+
+    def test_reserve_aux_administrateurs(self):
+        from parametres.models import ConfigurationEmail
+        self.client.force_login(self.paul)
+        self.assertNotContains(self.client.get(reverse('parametres')), 'E-mail (SMTP)')
+        self.enregistrer()
+        self.assertFalse(ConfigurationEmail.objects.exists())
+
+    def test_enregistrement_chiffre(self):
+        from parametres.email_backend import mode_envoi
+        from parametres.models import ConfigurationEmail
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse('parametres')), 'Non configuré')
+        r = self.enregistrer()
+        self.assertContains(r, 'Configuration e-mail enregistrée')
+        conf = ConfigurationEmail.actuelle()
+        self.assertNotIn('abcd', conf.mot_de_passe_chiffre)            # chiffré dans la base
+        self.assertEqual(conf.lire_mot_de_passe(), 'abcdefghijklmnop')  # espaces retirés
+        self.assertNotContains(r, 'abcdefghijklmnop')                   # jamais réaffiché
+        self.assertEqual(mode_envoi()[0], 'base')
+        self.enregistrer(mot_de_passe='')                               # vide : l'ancien est conservé
+        conf.refresh_from_db()
+        self.assertEqual(conf.lire_mot_de_passe(), 'abcdefghijklmnop')
+        self.assertContains(self.enregistrer(mot_de_passe='court'), '16 lettres')
+
+    def test_backend_utilise_la_configuration(self):
+        from parametres.email_backend import EmailBackend
+        from parametres.models import ConfigurationEmail
+        conf = ConfigurationEmail(utilisateur='boutique@gmail.com')
+        conf.definir_mot_de_passe('abcdefghijklmnop')
+        conf.save()
+        msg = mail.EmailMessage('Sujet', 'Corps', None, ['x@test.bi'])
+        vus = {}
+
+        def faux_envoi(backend, messages):
+            vus.update(host=backend.host, port=backend.port, user=backend.username, pwd=backend.password,
+                       tls=backend.use_tls, de=messages[0].from_email)
+            return 1
+        with mock.patch('django.core.mail.backends.smtp.EmailBackend.send_messages', faux_envoi):
+            self.assertEqual(EmailBackend(alias='default').send_messages([msg]), 1)
+        self.assertEqual(vus, {'host': 'smtp.gmail.com', 'port': 587, 'user': 'boutique@gmail.com',
+                               'pwd': 'abcdefghijklmnop', 'tls': True, 'de': 'SmartWater IoT <boutique@gmail.com>'})
+        conf.actif = False
+        conf.save()
+        with mock.patch('django.core.mail.backends.console.EmailBackend.send_messages', return_value=1) as console:
+            EmailBackend(alias='default').send_messages([msg])
+        console.assert_called_once()
+
+    def test_bouton_test_explique_les_erreurs(self):
+        self.client.force_login(self.admin)
+        self.enregistrer()
+        erreur = OSError("(535, b'5.7.8 Username and Password not accepted')")
+        with mock.patch('parametres.views.envoyer_email', side_effect=erreur):
+            r = self.client.post(reverse('parametres'), {'section': 'test_smtp', 'destinataire': 'a@b.bi'}, follow=True)
+        self.assertContains(r, 'mot de passe d&#x27;application')
+        with mock.patch('parametres.views.envoyer_email') as envoi:
+            r = self.client.post(reverse('parametres'), {'section': 'test_smtp', 'destinataire': 'a@b.bi'}, follow=True)
+        envoi.assert_called_once()
+        self.assertContains(r, 'E-mail de test envoyé à a@b.bi')

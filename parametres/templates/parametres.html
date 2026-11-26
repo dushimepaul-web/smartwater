@@ -2,7 +2,7 @@
 {% block titre_page %}<svg class="i"><use href="#i-gear"/></svg>Paramètres du système{% endblock %}
 {% block content %}
 {% if reservoirs|length > 1 %}<form class="row" method="get" style="margin:-44px 0 16px;justify-content:flex-end"><select class="sm" name="reservoir" onchange="this.form.submit()" style="background:#fff">{% for x in reservoirs %}<option value="{{ x.pk }}" {% if x.pk == choisi.pk %}selected{% endif %}>{{ x.nom }}</option>{% endfor %}</select></form>{% endif %}
-<div class="tabs"><button type="button" class="{% if onglet == 'seuils' %}on{% endif %}" data-pane="seuils">Seuils d’alerte</button><button type="button" class="{% if onglet == 'notifications' %}on{% endif %}" data-pane="notifications">Notifications</button><button type="button" class="{% if onglet == 'appareil' %}on{% endif %}" data-pane="appareil">Appareil</button></div>
+<div class="tabs"><button type="button" class="{% if onglet == 'seuils' %}on{% endif %}" data-pane="seuils">Seuils d’alerte</button><button type="button" class="{% if onglet == 'notifications' %}on{% endif %}" data-pane="notifications">Notifications</button><button type="button" class="{% if onglet == 'appareil' %}on{% endif %}" data-pane="appareil">Appareil</button>{% if smtp %}<button type="button" class="{% if onglet == 'smtp' %}on{% endif %}" data-pane="smtp">E-mail (SMTP)</button>{% endif %}</div>
 
 <div class="pane {% if onglet == 'seuils' %}on{% endif %}" id="seuils"><div class="card">
 {% if seuils %}<form method="post">{% csrf_token %}<input type="hidden" name="section" value="seuils"><input type="hidden" name="reservoir" value="{{ choisi.pk }}">
@@ -34,4 +34,25 @@
 <p class="help">La clé d’API et l’adresse d’envoi de l’ESP32 se trouvent dans <a href="{% url 'reservoir_modifier' choisi.pk %}">Réservoirs › Modifier</a>.</p>
 <div style="margin-top:18px"><button class="btn" type="submit"><svg class="i"><use href="#i-check"/></svg>Enregistrer</button></div></form>
 {% else %}<div class="empty">Aucun capteur.</div>{% endif %}</div></div>
+{% if smtp %}<div class="pane {% if onglet == 'smtp' %}on{% endif %}" id="smtp"><div class="card">
+<div class="row between"><h3>Serveur d’envoi des e-mails</h3>
+{% if smtp_mode == 'base' %}<span class="badge">Envoi réel actif</span>{% elif smtp_mode == 'env' %}<span class="badge info">Configuré par le fichier .env</span>{% else %}<span class="badge warn">Non configuré : e-mails affichés dans la console</span>{% endif %}</div>
+<form method="post" novalidate>{% csrf_token %}<input type="hidden" name="section" value="smtp">{{ smtp.non_field_errors }}
+<div class="fg">
+<div><label class="f" for="id_utilisateur">Adresse e-mail d’envoi (identifiant)</label><input type="email" name="utilisateur" id="id_utilisateur" value="{{ smtp.utilisateur.value|default:'' }}" placeholder="exemple@gmail.com" autocomplete="off">{{ smtp.utilisateur.errors }}</div>
+<div><label class="f" for="id_mot_de_passe">Mot de passe d’application</label>
+<div class="field" style="margin:0"><input type="password" name="mot_de_passe" id="id_mot_de_passe" style="padding-left:12px" placeholder="{% if smtp_conf.a_mot_de_passe %}•••••••••••••••• (enregistré – laisser vide pour le garder){% else %}16 lettres, ex. abcd efgh ijkl mnop{% endif %}" autocomplete="new-password"><button type="button" class="pw-toggle" aria-label="Afficher le mot de passe"><svg class="i"><use href="#i-eye"/></svg></button></div>{{ smtp.mot_de_passe.errors }}</div>
+<div><label class="f" for="id_hote">Serveur SMTP</label><input type="text" name="hote" id="id_hote" value="{{ smtp.hote.value|default:'smtp.gmail.com' }}">{{ smtp.hote.errors }}</div>
+<div><label class="f" for="id_port">Port</label><input type="number" name="port" id="id_port" value="{{ smtp.port.value|default:587|unlocalize }}">{{ smtp.port.errors }}</div>
+<div><label class="f" for="id_securite">Sécurité</label>{{ smtp.securite }}{{ smtp.securite.errors }}</div>
+<div><label class="f" for="id_expediteur">Nom affiché de l’expéditeur</label><input type="text" name="expediteur" id="id_expediteur" value="{{ smtp.expediteur.value|default:'SmartWater IoT' }}">{{ smtp.expediteur.errors }}</div>
+</div>
+<div class="opt"><span>Activer l’envoi réel des e-mails</span><label class="switch"><input type="checkbox" name="actif" {% if smtp.actif.value %}checked{% endif %}><i></i></label></div>
+<p class="help"><b>Gmail :</b> 1) activez la validation en 2 étapes sur myaccount.google.com/security ; 2) créez un mot de passe d’application sur myaccount.google.com/apppasswords ; 3) collez les 16 lettres ci-dessus (les espaces sont retirés automatiquement). Le mot de passe est <b>chiffré</b> dans la base et n’est jamais réaffiché.
+{% if smtp_conf %}<br>Dernière modification : {{ smtp_conf.date_modification|date:"d/m/Y H:i" }}{% if smtp_conf.modifie_par %} par {{ smtp_conf.modifie_par }}{% endif %}.{% endif %}</p>
+<div style="margin-top:12px"><button class="btn" type="submit"><svg class="i"><use href="#i-check"/></svg>Enregistrer</button></div></form>
+<form method="post" class="row" style="margin-top:14px;gap:8px">{% csrf_token %}<input type="hidden" name="section" value="test_smtp">
+<input type="email" name="destinataire" value="{{ user.email }}" style="max-width:300px" aria-label="Destinataire du test">
+<button class="btn ghost" type="submit"><svg class="i"><use href="#i-mail"/></svg>Envoyer un e-mail de test</button></form>
+</div></div>{% endif %}
 {% endblock %}

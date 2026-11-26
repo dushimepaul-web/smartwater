@@ -1,6 +1,7 @@
 -- =====================================================================
 --  SmartWater IoT – base de données MySQL (cohérente avec le cahier des charges)
 --  6 tables métier : roles, utilisateurs, reservoirs, capteurs, mesures, alertes
+--  + configuration_email (serveur SMTP, mot de passe chiffré)
 --  + tables techniques de Django (sessions, admin, migrations).
 --
 --  Méthode recommandée : créer une base vide `smartwater` puis lancer
@@ -91,7 +92,7 @@ CREATE TABLE `auth_permission` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `auth_permission_content_type_id_codename_01ab375a_uniq` (`content_type_id`,`codename`),
   CONSTRAINT `auth_permission_content_type_id_2f476e4b_fk_django_co` FOREIGN KEY (`content_type_id`) REFERENCES `django_content_type` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 LOCK TABLES `auth_permission` WRITE;
@@ -140,7 +141,11 @@ INSERT INTO `auth_permission` VALUES
 (41,'Can add alerte',11,'add_alerte'),
 (42,'Can change alerte',11,'change_alerte'),
 (43,'Can delete alerte',11,'delete_alerte'),
-(44,'Can view alerte',11,'view_alerte');
+(44,'Can view alerte',11,'view_alerte'),
+(45,'Can add configuration e-mail',12,'add_configurationemail'),
+(46,'Can change configuration e-mail',12,'change_configurationemail'),
+(47,'Can delete configuration e-mail',12,'delete_configurationemail'),
+(48,'Can view configuration e-mail',12,'view_configurationemail');
 /*!40000 ALTER TABLE `auth_permission` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `capteurs`;
@@ -167,6 +172,30 @@ LOCK TABLES `capteurs` WRITE;
 INSERT INTO `capteurs` VALUES
 (1,'HC-SR04',100,'hors_ligne','demo-changez-cette-cle-0123456789abcdef',10,NULL,1);
 /*!40000 ALTER TABLE `capteurs` ENABLE KEYS */;
+UNLOCK TABLES;
+DROP TABLE IF EXISTS `configuration_email`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `configuration_email` (
+  `id_configuration` int(11) NOT NULL AUTO_INCREMENT,
+  `actif` tinyint(1) NOT NULL,
+  `hote` varchar(150) NOT NULL,
+  `port` int(10) unsigned NOT NULL CHECK (`port` >= 0),
+  `securite` varchar(10) NOT NULL,
+  `utilisateur` varchar(150) NOT NULL,
+  `mot_de_passe` longtext NOT NULL,
+  `expediteur` varchar(100) NOT NULL,
+  `date_modification` datetime(6) NOT NULL,
+  `modifie_par` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id_configuration`),
+  KEY `configuration_email_modifie_par_15855c46_fk_utilisate` (`modifie_par`),
+  CONSTRAINT `configuration_email_modifie_par_15855c46_fk_utilisate` FOREIGN KEY (`modifie_par`) REFERENCES `utilisateurs` (`id_utilisateur`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `configuration_email` WRITE;
+/*!40000 ALTER TABLE `configuration_email` DISABLE KEYS */;
+/*!40000 ALTER TABLE `configuration_email` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `django_admin_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -201,7 +230,7 @@ CREATE TABLE `django_content_type` (
   `model` varchar(100) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `django_content_type_app_label_model_76bd3d3b_uniq` (`app_label`,`model`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 LOCK TABLES `django_content_type` WRITE;
@@ -213,6 +242,7 @@ INSERT INTO `django_content_type` VALUES
 (2,'auth','group'),
 (3,'auth','permission'),
 (4,'contenttypes','contenttype'),
+(12,'parametres','configurationemail'),
 (8,'reservoirs','capteur'),
 (9,'reservoirs','mesure'),
 (10,'reservoirs','reservoir'),
@@ -229,36 +259,37 @@ CREATE TABLE `django_migrations` (
   `name` varchar(255) NOT NULL,
   `applied` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 LOCK TABLES `django_migrations` WRITE;
 /*!40000 ALTER TABLE `django_migrations` DISABLE KEYS */;
 INSERT INTO `django_migrations` VALUES
-(1,'roles','0001_initial','2026-11-26 00:40:54.714125'),
-(2,'accounts','0001_initial','2026-11-26 00:40:54.725863'),
-(3,'accounts','0002_notifications_telephone','2026-11-26 00:40:54.735301'),
-(4,'contenttypes','0001_initial','2026-11-26 00:40:54.743249'),
-(5,'admin','0001_initial','2026-11-26 00:40:54.758743'),
-(6,'admin','0002_logentry_remove_auto_add','2026-11-26 00:40:54.762426'),
-(7,'admin','0003_logentry_add_action_flag_choices','2026-11-26 00:40:54.766292'),
-(8,'reservoirs','0001_initial','2026-11-26 00:40:54.810098'),
-(9,'alertes','0001_initial','2026-11-26 00:40:54.822961'),
-(10,'contenttypes','0002_remove_content_type_name','2026-11-26 00:40:54.840681'),
-(11,'auth','0001_initial','2026-11-26 00:40:54.885897'),
-(12,'auth','0002_alter_permission_name_max_length','2026-11-26 00:40:54.897937'),
-(13,'auth','0003_alter_user_email_max_length','2026-11-26 00:40:54.908463'),
-(14,'auth','0004_alter_user_username_opts','2026-11-26 00:40:54.912526'),
-(15,'auth','0005_alter_user_last_login_null','2026-11-26 00:40:54.916880'),
-(16,'auth','0006_require_contenttypes_0002','2026-11-26 00:40:54.918051'),
-(17,'auth','0007_alter_validators_add_error_messages','2026-11-26 00:40:54.922213'),
-(18,'auth','0008_alter_user_username_max_length','2026-11-26 00:40:54.927187'),
-(19,'auth','0009_alter_user_last_name_max_length','2026-11-26 00:40:54.930757'),
-(20,'auth','0010_alter_group_name_max_length','2026-11-26 00:40:54.940638'),
-(21,'auth','0011_update_proxy_permissions','2026-11-26 00:40:54.946429'),
-(22,'auth','0012_alter_user_first_name_max_length','2026-11-26 00:40:54.950443'),
-(23,'roles','0002_roles_par_defaut','2026-11-26 00:40:54.960463'),
-(24,'sessions','0001_initial','2026-11-26 00:40:54.968289');
+(1,'roles','0001_initial','2026-11-26 00:49:37.201343'),
+(2,'accounts','0001_initial','2026-11-26 00:49:37.213823'),
+(3,'accounts','0002_notifications_telephone','2026-11-26 00:49:37.223688'),
+(4,'contenttypes','0001_initial','2026-11-26 00:49:37.231197'),
+(5,'admin','0001_initial','2026-11-26 00:49:37.244999'),
+(6,'admin','0002_logentry_remove_auto_add','2026-11-26 00:49:37.247410'),
+(7,'admin','0003_logentry_add_action_flag_choices','2026-11-26 00:49:37.249858'),
+(8,'reservoirs','0001_initial','2026-11-26 00:49:37.286244'),
+(9,'alertes','0001_initial','2026-11-26 00:49:37.297843'),
+(10,'contenttypes','0002_remove_content_type_name','2026-11-26 00:49:37.313563'),
+(11,'auth','0001_initial','2026-11-26 00:49:37.354302'),
+(12,'auth','0002_alter_permission_name_max_length','2026-11-26 00:49:37.363522'),
+(13,'auth','0003_alter_user_email_max_length','2026-11-26 00:49:37.366046'),
+(14,'auth','0004_alter_user_username_opts','2026-11-26 00:49:37.368674'),
+(15,'auth','0005_alter_user_last_login_null','2026-11-26 00:49:37.371839'),
+(16,'auth','0006_require_contenttypes_0002','2026-11-26 00:49:37.372701'),
+(17,'auth','0007_alter_validators_add_error_messages','2026-11-26 00:49:37.376828'),
+(18,'auth','0008_alter_user_username_max_length','2026-11-26 00:49:37.380966'),
+(19,'auth','0009_alter_user_last_name_max_length','2026-11-26 00:49:37.385754'),
+(20,'auth','0010_alter_group_name_max_length','2026-11-26 00:49:37.395661'),
+(21,'auth','0011_update_proxy_permissions','2026-11-26 00:49:37.403454'),
+(22,'auth','0012_alter_user_first_name_max_length','2026-11-26 00:49:37.407465'),
+(23,'parametres','0001_configuration_email','2026-11-26 00:49:37.423561'),
+(24,'roles','0002_roles_par_defaut','2026-11-26 00:49:37.436392'),
+(25,'sessions','0001_initial','2026-11-26 00:49:37.445613');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `django_session`;
@@ -338,9 +369,9 @@ CREATE TABLE `roles` (
 LOCK TABLES `roles` WRITE;
 /*!40000 ALTER TABLE `roles` DISABLE KEYS */;
 INSERT INTO `roles` VALUES
-(1,'admin','Administrateur','Accès complet au système',1,'2026-11-26 00:40:54.957566'),
-(2,'utilisateur','Utilisateur','Consulte et gère ses propres réservoirs',0,'2026-11-26 00:40:54.959431'),
-(3,'technicien','Technicien','Installe et entretient les capteurs de ses réservoirs',0,'2026-11-26 00:40:55.365515');
+(1,'admin','Administrateur','Accès complet au système',1,'2026-11-26 00:49:37.433453'),
+(2,'utilisateur','Utilisateur','Consulte et gère ses propres réservoirs',0,'2026-11-26 00:49:37.435237'),
+(3,'technicien','Technicien','Installe et entretient les capteurs de ses réservoirs',0,'2026-11-26 00:49:37.867826');
 /*!40000 ALTER TABLE `roles` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `utilisateurs`;
@@ -369,7 +400,7 @@ CREATE TABLE `utilisateurs` (
 LOCK TABLES `utilisateurs` WRITE;
 /*!40000 ALTER TABLE `utilisateurs` DISABLE KEYS */;
 INSERT INTO `utilisateurs` VALUES
-(1,'Administrateur','admin@smartwater.local','pbkdf2_sha256$1500000$WoTys2EcNqbyJzBl4IeNGC$eHsn0Nvha/s5O6fYPTcBsvOaqcfpsc0sCGh1YZQjXpM=',1,NULL,'2026-11-26 00:40:55.603606',1,0,0,1,'');
+(1,'Administrateur','admin@smartwater.local','pbkdf2_sha256$1500000$B6ISjovNzUTSD5aWe3uV1A$/bPSFqkdVuwD+HvKd/q20uMNDryA8EgfWGPBKucMTOE=',1,NULL,'2026-11-26 00:49:38.079867',1,0,0,1,'');
 /*!40000 ALTER TABLE `utilisateurs` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
