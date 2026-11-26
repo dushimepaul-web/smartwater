@@ -125,6 +125,12 @@ Connecté en **administrateur**, ouvrez **Paramètres → E-mail (SMTP)** :
 Le mot de passe est **chiffré** dans la table `configuration_email`, avec une clé dérivée de `DJANGO_SECRET_KEY`. Il n'est jamais réaffiché.
 ⚠️ Si vous changez `DJANGO_SECRET_KEY`, ressaisissez le mot de passe.
 
+En ligne de commande, le mot de passe est demandé au clavier et ne s'affiche pas :
+
+```bat
+python manage.py configurer_email --email votre.adresse@gmail.com --test votre.adresse@gmail.com
+```
+
 Autre possibilité : les variables `EMAIL_HOST`… du fichier `.env`. Elles ne servent que si rien n'est configuré dans l'application.
 Sans configuration, les e-mails s'affichent dans la console du serveur.
 Les e-mails d'alerte partent pour les niveaux **bas** et **haut**.
