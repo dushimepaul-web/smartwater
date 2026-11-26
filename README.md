@@ -160,6 +160,14 @@ Pour plus de confidentialité, vous pouvez installer votre propre serveur ntfy e
 2. Notez le **Channel ID** et, dans l'onglet *API Keys*, la **Write API Key**. Si le canal est privé, notez aussi la **Read API Key**.
 3. Dans SmartWater, ouvrez **Paramètres → ThingSpeak** (pour le réservoir choisi), saisissez ces valeurs, puis cliquez sur **Enregistrer**, puis sur **Tester**.
 
+Vous pouvez aussi tout faire en ligne de commande. Les clés sont demandées au clavier et ne s'affichent pas :
+
+```bat
+python manage.py configurer_thingspeak --canal 3597819 --test
+```
+
+En Docker : `docker compose exec web python manage.py configurer_thingspeak --canal 3597819 --test`.
+
 Le comportement :
 - chaque mesure reçue est recopiée, au plus une fois toutes les 20 s (15 s minimum : c'est la limite de l'offre gratuite, 3 millions de messages par an) ;
 - les clés sont chiffrées dans la base (table `thingspeak`) ;
