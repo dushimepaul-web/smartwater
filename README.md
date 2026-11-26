@@ -13,6 +13,8 @@ ESP32 + JSN-SR04T/HC-SR04 ──HTTP POST /api/mesures/──┐
                          Navigateur (pages Django, rafraîchies toutes les 5 s via l'API)
 ```
 
+> 📘 **Guide illustré (PDF)** : [docs/SmartWater_IoT_Guide_connexion_et_fonctionnement.pdf](docs/SmartWater_IoT_Guide_connexion_et_fonctionnement.pdf) – fonctionnement de l'application et connexion pas à pas.
+>
 > 🚀 **Mise en ligne sur un serveur avec Docker et un nom de domaine** : voir la section [en bas de ce fichier](#-mise-en-ligne-sur-un-serveur-vps-avec-docker-et-un-nom-de-domaine).
 
 ## Installation (Windows)
