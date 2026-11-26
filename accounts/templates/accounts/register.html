@@ -1,0 +1,12 @@
+{% extends "base_auth.html" %}{% block titre %}Inscription{% endblock %}
+{% block content %}
+<div class="lock"><svg class="i"><use href="#i-user"/></svg></div><h2>Inscription</h2><div class="sub">Créez votre compte SmartWater IoT</div>
+<form method="post" novalidate>{% csrf_token %}
+{{ form.non_field_errors }}
+<div class="field"><svg class="i"><use href="#i-user"/></svg><input type="text" name="nom" value="{{ form.nom.value|default:'' }}" placeholder="Nom complet" required></div>{{ form.nom.errors }}
+<div class="field"><svg class="i"><use href="#i-mail"/></svg><input type="email" name="email" value="{{ form.email.value|default:'' }}" placeholder="Adresse e-mail" autocomplete="email" required></div>{{ form.email.errors }}
+<div class="field"><svg class="i"><use href="#i-lock"/></svg><input type="password" name="password1" placeholder="Mot de passe (8 caractères min.)" autocomplete="new-password" required><button type="button" class="pw-toggle" aria-label="Afficher le mot de passe"><svg class="i"><use href="#i-eye"/></svg></button></div>{{ form.password1.errors }}
+<div class="field"><svg class="i"><use href="#i-lock"/></svg><input type="password" name="password2" placeholder="Confirmer le mot de passe" autocomplete="new-password" required><button type="button" class="pw-toggle" aria-label="Afficher le mot de passe"><svg class="i"><use href="#i-eye"/></svg></button></div>{{ form.password2.errors }}
+<button class="btn full" style="margin-top:12px" type="submit"><svg class="i"><use href="#i-arrow"/></svg>S'inscrire</button></form>
+<p class="center" style="margin-top:18px">Déjà un compte ? <a href="{% url 'login' %}">Se connecter</a></p>
+{% endblock %}

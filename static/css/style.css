@@ -89,3 +89,25 @@ td{padding:12px;border-bottom:1px solid var(--line);font-size:13px}tr:last-child
 .login{grid-template-columns:1fr}.hero{min-height:420px}.two{grid-template-columns:1fr}.two>div+div{border-left:0;border-top:1px solid var(--line);margin-top:10px}.alert{grid-template-columns:24px 1fr;row-gap:6px}.alert .eye{display:none}}
 @media(max-width:480px){.kpis,.dgrid{grid-template-columns:1fr}.content{padding:14px 10px}}
 @media(min-width:801px){.sidebar.open{display:none}.app:has(.sidebar.open){grid-template-columns:1fr}}
+/* --- ajouts : messages, formulaires, compteurs --- */
+.muted{color:var(--muted);font-weight:400}
+.count{margin-left:auto;background:var(--bad);color:#fff;border-radius:99px;font-size:11px;padding:1px 7px}
+.sidebar form{margin:0}
+button.logout{width:calc(100% - 12px);background:none;border:0;border-top:1px solid rgba(255,255,255,.12);cursor:pointer;font:inherit;text-align:left}
+.msgs{margin-bottom:14px;display:grid;gap:8px}
+.msg{padding:10px 14px;border-radius:8px;background:var(--infobg);color:var(--info);font-weight:500}
+.msg.success{background:var(--okbg);color:var(--ok)}.msg.error{background:var(--badbg);color:var(--bad)}.msg.warning{background:var(--warnbg);color:#c76a0a}
+.errorlist{list-style:none;margin:4px 0 10px;padding:0;color:var(--bad);font-size:12.5px}
+.badge.off{background:#eceff4;color:var(--muted)}
+.btn.red{background:var(--bad)}.btn.sm{padding:6px 10px;font-size:12px}
+.alert.unread{background:#fff8f8}
+.alert form{margin:0}.alert .eyeb{background:none;border:0;padding:0;cursor:pointer;color:#1e6fe8}
+.okbar.bad{background:#fde4e4;border-color:#f7c7c7;color:#7f1d1d}.okbar.bad svg.i{color:var(--bad)}
+.status .okb.bad{background:var(--badbg);border-color:#f7c7c7;color:#7f1d1d}.status .okb.bad b,.status .okb.bad svg.i{color:var(--bad)}
+.status .okb.warn{background:var(--warnbg);border-color:#f6d3a6;color:#7c4a03}.status .okb.warn b,.status .okb.warn svg.i{color:#c76a0a}
+code.key{font-size:11.5px;background:#eef3fb;padding:3px 6px;border-radius:5px;word-break:break-all}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.pager{display:flex;gap:8px;justify-content:center;padding:12px}
+.chart .nodata{font-size:14px;fill:#8a97ab}
+.inline{display:inline}
+.help{color:var(--muted);font-size:12px;margin-top:4px}

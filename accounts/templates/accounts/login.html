@@ -1,0 +1,12 @@
+{% extends "base_auth.html" %}{% block titre %}Connexion{% endblock %}
+{% block content %}
+<div class="lock"><svg class="i"><use href="#i-lock"/></svg></div><h2>Connexion</h2><div class="sub">Connectez-vous à votre compte</div>
+<form method="post">{% csrf_token %}
+{{ form.non_field_errors }}
+<input type="hidden" name="next" value="{{ next }}">
+<div class="field"><svg class="i"><use href="#i-mail"/></svg><input type="email" name="username" value="{{ form.username.value|default:'' }}" placeholder="Adresse e-mail" autocomplete="email" required autofocus></div>
+<div class="field"><svg class="i"><use href="#i-lock"/></svg><input type="password" name="password" placeholder="Mot de passe" autocomplete="current-password" required><button type="button" class="pw-toggle" aria-label="Afficher le mot de passe"><svg class="i"><use href="#i-eye"/></svg></button></div>
+<div class="links"><label><input type="checkbox" name="remember"> Se souvenir de moi</label><a href="{% url 'password_reset' %}">Mot de passe oublié ?</a></div>
+<button class="btn full" type="submit"><svg class="i"><use href="#i-arrow"/></svg>Se connecter</button></form>
+<p class="center" style="margin-top:18px">Pas de compte ? <a href="{% url 'register' %}">Créer un compte</a></p>
+{% endblock %}

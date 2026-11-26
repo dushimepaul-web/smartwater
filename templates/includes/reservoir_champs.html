@@ -1,0 +1,9 @@
+{% load l10n %}{{ form.non_field_errors }}
+{% if form.utilisateur %}<label class="f" for="id_utilisateur">Propriétaire</label>{{ form.utilisateur }}{{ form.utilisateur.errors }}{% endif %}
+<label class="f" for="id_nom">Nom</label><input type="text" name="nom" id="id_nom" value="{{ form.nom.value|default:'' }}" placeholder="Réservoir Principal" required>{{ form.nom.errors }}
+<label class="f" for="id_emplacement">Emplacement</label><input type="text" name="emplacement" id="id_emplacement" value="{{ form.emplacement.value|default:'' }}" placeholder="Bâtiment A - cave">{{ form.emplacement.errors }}
+<div class="fg"><div><label class="f" for="id_capacite_litres">Capacité (L)</label><input type="number" min="1" name="capacite_litres" id="id_capacite_litres" value="{{ form.capacite_litres.value|default:''|unlocalize }}" placeholder="1000" required>{{ form.capacite_litres.errors }}</div>
+<div><label class="f" for="id_hauteur_cm">Hauteur du réservoir (cm)</label><input type="number" step="0.1" min="1" name="hauteur_cm" id="id_hauteur_cm" value="{{ form.hauteur_cm.value|default:''|unlocalize }}" placeholder="100" required>{{ form.hauteur_cm.errors }}</div></div>
+<div class="fg"><div><label class="f" for="id_seuil_bas">Seuil bas (%)</label><input type="number" step="0.1" name="seuil_bas" id="id_seuil_bas" value="{{ form.seuil_bas.value|default:'20'|unlocalize }}" required>{{ form.seuil_bas.errors }}</div>
+<div><label class="f" for="id_seuil_haut">Seuil haut (%)</label><input type="number" step="0.1" name="seuil_haut" id="id_seuil_haut" value="{{ form.seuil_haut.value|default:'85'|unlocalize }}" required>{{ form.seuil_haut.errors }}</div></div>
+<label class="f" for="id_modele">Modèle du capteur</label><input type="text" name="modele" id="id_modele" value="{{ form.modele.value|default:'HC-SR04' }}">{{ form.modele.errors }}

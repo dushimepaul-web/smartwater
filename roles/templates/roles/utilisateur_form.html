@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block titre %}{% if cible %}Modifier {{ cible }}{% else %}Nouvel utilisateur{% endif %}{% endblock %}
+{% block titre_page %}<svg class="i"><use href="#i-user"/></svg>{% if cible %}Modifier « {{ cible }} »{% else %}Nouvel utilisateur{% endif %}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px"><form method="post" novalidate>{% csrf_token %}{{ form.non_field_errors }}
+<label class="f" for="id_nom">Nom complet</label><input type="text" name="nom" id="id_nom" value="{{ form.nom.value|default:'' }}" required>{{ form.nom.errors }}
+<label class="f" for="id_email">Adresse e-mail</label><input type="email" name="email" id="id_email" value="{{ form.email.value|default:'' }}" required>{{ form.email.errors }}
+<label class="f" for="id_role">Rôle</label>{{ form.role }}{{ form.role.errors }}
+<label class="f" for="id_mot_de_passe">{% if cible %}Nouveau mot de passe{% else %}Mot de passe{% endif %}</label>
+<div class="field" style="margin:0"><input type="password" name="mot_de_passe" id="id_mot_de_passe" autocomplete="new-password" style="padding-left:12px"><button type="button" class="pw-toggle" aria-label="Afficher le mot de passe"><svg class="i"><use href="#i-eye"/></svg></button></div>
+{{ form.mot_de_passe.errors }}{% if form.mot_de_passe.help_text %}<div class="help">{{ form.mot_de_passe.help_text }}</div>{% endif %}
+<div class="opt"><span>Compte actif <span class="help">— un compte désactivé ne peut plus se connecter</span></span><label class="switch"><input type="checkbox" name="is_active" {% if form.is_active.value %}checked{% endif %}><i></i></label></div>
+<div class="row" style="margin-top:18px;justify-content:flex-end"><a class="btn ghost" href="{% url 'roles' %}">Annuler</a><button class="btn" type="submit"><svg class="i"><use href="#i-check"/></svg>Enregistrer</button></div>
+</form></div>
+{% endblock %}
