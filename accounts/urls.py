@@ -6,6 +6,8 @@ from . import views
 urlpatterns = [
     path('', views.ConnexionView.as_view(), name='login'),
     path('inscription/', views.inscription, name='register'),
+    path('verifier-email/', views.verifier_email, name='verifier_email'),
+    path('verifier-email/renvoyer/', views.renvoyer_otp, name='renvoyer_otp'),
     path('deconnexion/', auth_views.LogoutView.as_view(), name='logout'),
     path('mot-de-passe/oublie/', auth_views.PasswordResetView.as_view(
         template_name='registration/reset_form.html',

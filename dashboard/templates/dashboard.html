@@ -12,6 +12,28 @@
 <div class="card kpi"><svg class="i c-blue"><use href="#i-tank"/></svg><div><small>Capacité totale</small><b data-k="capacite">{{ g.capacite_totale }} L</b></div></div>
 <div class="card kpi"><svg class="i c-green"><use href="#i-shield"/></svg><div><small>Réservoirs en ligne</small><b data-k="en_ligne">{{ g.nb_en_ligne }} / {{ g.nb_reservoirs }}</b></div></div>
 <div class="card kpi"><svg class="i c-red"><use href="#i-err"/></svg><div><small>Alertes actives</small><b data-k="alertes">{{ g.alertes_non_lues }}</b></div></div></div>
+{% if user.est_admin %}
+<div class="card" style="margin:0 0 16px">
+<div class="row between"><h3>Simulateur de capteur</h3>
+{% if simulation_active %}<div class="row" style="gap:8px"><span class="badge warn">Simulation « {{ simulation_active_label }} » en cours</span><form method="post" action="{% url 'arreter_simulation' %}">{% csrf_token %}<button class="btn red sm" type="submit">Arrêter</button></form></div>{% endif %}</div>
+{% with capteur=choisi.capteurs.first %}
+{% if capteur %}
+<div class="row" style="margin-top:10px;gap:8px">
+{% for code, libelle in scenarios.items %}
+<form method="post" action="{% url 'simuler' code %}">{% csrf_token %}
+<input type="hidden" name="capteur" value="{{ capteur.pk }}">
+<input type="hidden" name="reservoir" value="{{ choisi.pk }}">
+<button class="btn {% if simulation_active == code and simulation_active_capteur == capteur.pk %}red{% elif code == 'vidange' %}red{% elif code == 'remplissage' %}green{% endif %}" type="submit">{% if simulation_active == code and simulation_active_capteur == capteur.pk %}Arrêter {{ libelle }}{% else %}Lancer {{ libelle }}{% endif %}</button>
+</form>
+{% endfor %}
+</div>
+<small class="muted">Mesures ajoutées au capteur « {{ capteur.modele }} » du réservoir « {{ choisi.nom }} » toutes les 2 s.</small>
+{% else %}
+<p class="muted">Ce réservoir n’a pas encore de capteur. <a href="{% url 'reservoir_modifier' choisi.pk %}">Ajoutez un capteur</a> pour utiliser le simulateur.</p>
+{% endif %}
+{% endwith %}
+</div>
+{% endif %}
 <div class="dgrid"><div class="card"><div class="row between"><h3>Évolution du niveau d’eau – {{ choisi.nom }}</h3>
 <form method="get"><input type="hidden" name="reservoir" value="{{ choisi.pk }}"><select class="sm" name="periode" onchange="this.form.submit()">{% for k, v in periodes.items %}<option value="{{ k }}" {% if k == periode %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></form></div>
 <svg class="chart" id="chart" viewBox="0 0 640 250" role="img" aria-label="Niveau d’eau"></svg></div>

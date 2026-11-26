@@ -1,0 +1,94 @@
+# SmartWater IoT – déploiement de production
+#   docker compose up -d --build
+# Toutes les valeurs viennent du fichier .env (copie de .env.production.example).
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: ${DJANGO_TIME_ZONE:-Africa/Bujumbura}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    # Pas de "ports" : MySQL n'est PAS accessible depuis Internet
+
+  web:
+    build: .
+    image: smartwater:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      MQTT_HOST: mqtt
+      MQTT_PORT: "1883"
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/mosquitto/config/demarrer.sh"]
+    environment:
+      MQTT_USER: ${MQTT_USER}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./docker/mosquitto/demarrer.sh:/mosquitto/config/demarrer.sh:ro
+      - mqtt_data:/mosquitto/data
+    ports:
+      - "1883:1883"   # pour les ESP32 qui envoient en MQTT (supprimez si vous n'utilisez que HTTPS)
+
+  mqtt_listener:
+    image: smartwater:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      MQTT_HOST: mqtt
+      MQTT_PORT: "1883"
+      MIGRER: "0"
+    command: ["python", "manage.py", "mqtt_listener"]
+    depends_on:
+      web:
+        condition: service_started
+      mqtt:
+        condition: service_started
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAINE: ${DOMAINE}
+      EMAIL_LETSENCRYPT: ${EMAIL_LETSENCRYPT}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  db_data:
+  mqtt_data:
+  caddy_data:
+  caddy_config:

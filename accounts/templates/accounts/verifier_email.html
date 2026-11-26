@@ -1,0 +1,12 @@
+{% extends "base_auth.html" %}{% block titre %}Vérification de l'e-mail{% endblock %}
+{% block content %}
+<div class="lock"><svg class="i"><use href="#i-mail"/></svg></div><h2>Vérification de l'e-mail</h2><div class="sub">Entrez le code à 6 chiffres envoyé à <b>{{ email }}</b></div>
+<form method="post" novalidate>{% csrf_token %}
+{{ form.non_field_errors }}
+<div class="field"><svg class="i"><use href="#i-lock"/></svg><input type="text" name="code" value="{{ form.code.value|default:'' }}" placeholder="Code de vérification (6 chiffres)" maxlength="6" autocomplete="one-time-code" required autofocus style="letter-spacing:4px;font-size:1.2em;text-align:center;"></div>{{ form.code.errors }}
+<button class="btn full" style="margin-top:12px" type="submit"><svg class="i"><use href="#i-arrow"/></svg>Valider</button></form>
+<form method="post" action="{% url 'renvoyer_otp' %}" style="margin-top:12px;">{% csrf_token %}
+<button class="btn full secondary" type="submit" style="background:#e2e8f0;color:#1e293b;">Renvoyer le code</button>
+</form>
+<p class="center" style="margin-top:18px"><a href="{% url 'login' %}">Retour à la connexion</a></p>
+{% endblock %}

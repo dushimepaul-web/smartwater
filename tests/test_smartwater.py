@@ -18,9 +18,9 @@ MDP = 'UnMotDePasse!2026'
 
 class Base(TestCase):
     def setUp(self):
-        self.admin = Utilisateur.objects.create_superuser('admin@test.bi', 'Admin', MDP)
-        self.paul = Utilisateur.objects.create_user('paul@test.bi', 'Paul', MDP)
-        self.autre = Utilisateur.objects.create_user('autre@test.bi', 'Autre', MDP)
+        self.admin = Utilisateur.objects.create_superuser('admin@test.bi', 'Admin', MDP, email_verifie=True)
+        self.paul = Utilisateur.objects.create_user('paul@test.bi', 'Paul', MDP, email_verifie=True)
+        self.autre = Utilisateur.objects.create_user('autre@test.bi', 'Autre', MDP, email_verifie=True)
         self.res = Reservoir.objects.create(utilisateur=self.paul, nom='Cuve Paul', capacite_litres=1000)
         self.capteur = Capteur.objects.create(reservoir=self.res, hauteur_cm=100)
 
@@ -84,7 +84,7 @@ class PagesTests(Base):
     def test_inscription(self):
         r = self.client.post(reverse('register'), {'nom': 'Nouveau', 'email': 'New@Test.bi',
                                                    'password1': MDP, 'password2': MDP})
-        self.assertRedirects(r, reverse('reservoirs'))
+        self.assertRedirects(r, reverse('verifier_email'), fetch_redirect_response=False)
         u = Utilisateur.objects.get(email='new@test.bi')
         self.assertEqual(u.role.nom, 'utilisateur')
         r = self.client.post(reverse('register'), {'nom': 'X', 'email': 'paul@test.bi',

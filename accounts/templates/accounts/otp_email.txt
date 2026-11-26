@@ -1,0 +1,9 @@
+Bonjour {{ user.nom }},
+
+Votre code de vérification SmartWater IoT est :
+
+{{ code }}
+
+Il expire dans {{ minutes }} minutes.
+
+Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.

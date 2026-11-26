@@ -36,8 +36,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    expose:
-      - "8000"
+    ports:
+      - "30003:8000"   # exposé sur l'hôte ; nginx fait le reverse proxy pour tele.nufotec.com
 
   mqtt:
     image: eclipse-mosquitto:2
@@ -70,22 +70,24 @@ services:
       mqtt:
         condition: service_started
 
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    environment:
-      DOMAINE: ${DOMAINE}
-      EMAIL_LETSENCRYPT: ${EMAIL_LETSENCRYPT}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - web
+  # Caddy est désactivé : nginx occupe déjà les ports 80/443 sur ce serveur.
+  # Le reverse proxy HTTPS de tele.nufotec.com est géré par nginx.
+  # caddy:
+  #   image: caddy:2
+  #   restart: unless-stopped
+  #   environment:
+  #     DOMAINE: ${DOMAINE}
+  #     EMAIL_LETSENCRYPT: ${EMAIL_LETSENCRYPT}
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #     - "443:443/udp"
+  #   volumes:
+  #     - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #   depends_on:
+  #     - web
 
 volumes:
   db_data:

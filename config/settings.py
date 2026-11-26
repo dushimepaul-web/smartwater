@@ -143,8 +143,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Fichiers statiques servis par WhiteNoise (compressés, mis en cache) en production
 STORAGES = {
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
-    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage' if not DEBUG
-                    else 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'

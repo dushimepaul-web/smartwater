@@ -17,6 +17,7 @@ class UtilisateurManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, nom, password=None, **extra):
+        extra.setdefault('email_verifie', True)
         return self.create_user(email, nom, password, role=Role.administrateur(), **extra)
 
     def get_by_natural_key(self, email):
@@ -35,6 +36,12 @@ class Utilisateur(AbstractBaseUser):
     is_active = models.BooleanField('actif', default=True, db_column='actif')
     last_login = models.DateTimeField('dernière connexion', null=True, blank=True, db_column='derniere_connexion')
     date_creation = models.DateTimeField(auto_now_add=True)
+
+    # Vérification de l'adresse e-mail par code OTP
+    email_verifie = models.BooleanField("e-mail vérifié", default=False)
+    otp_code = models.CharField("code OTP (haché)", max_length=128, blank=True, default="")
+    otp_expire = models.DateTimeField("expiration du code OTP", null=True, blank=True)
+    otp_tentatives = models.PositiveSmallIntegerField("tentatives OTP", default=0)
 
     # Préférences de notification (écran Paramètres)
     notif_email = models.BooleanField('alertes par e-mail', default=True)

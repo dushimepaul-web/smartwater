@@ -44,4 +44,20 @@ class InscriptionForm(forms.ModelForm):
     def save(self, commit=True):
         return Utilisateur.objects.create_user(
             email=self.cleaned_data['email'], nom=self.cleaned_data['nom'],
-            password=self.cleaned_data['password1'])
+            password=self.cleaned_data['password1'], email_verifie=False)
+
+
+class VerificationForm(forms.Form):
+    code = forms.CharField(
+        label='Code de vérification', max_length=6, min_length=6,
+        widget=forms.TextInput(attrs={
+            'inputmode': 'numeric', 'autocomplete': 'one-time-code',
+            'placeholder': 'Code à 6 chiffres',
+        }),
+    )
+
+    def clean_code(self):
+        code = self.cleaned_data['code'].strip()
+        if not code.isdigit():
+            raise forms.ValidationError('Le code doit contenir 6 chiffres.')
+        return code
