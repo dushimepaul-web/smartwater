@@ -100,6 +100,50 @@ curl -X POST http://127.0.0.1:8000/api/mesures/ -H "X-API-Key: <cle>" -H "Conten
 
 L'API est prête pour une interface React (prévue dans le PDF). Les pages Django actuelles l'utilisent déjà pour le temps réel.
 
+## Gestion des utilisateurs
+
+Un administrateur gère tout depuis **Utilisateurs & rôles** :
+- il crée un compte (nom, e-mail, rôle, mot de passe) ;
+- il le modifie : rôle, activation ou désactivation, nouveau mot de passe ;
+- il le supprime. Ses réservoirs peuvent alors être transférés sur le compte de l'administrateur.
+
+Protections : on ne peut pas supprimer son propre compte, et il reste toujours un administrateur actif.
+
+## Notifications des alertes
+
+Chaque utilisateur choisit ses canaux dans **Paramètres → Notifications**. Le bouton **Envoyer un test** vérifie la configuration.
+
+### E-mails réels (Gmail)
+
+1. Activez la **validation en 2 étapes** du compte Google : https://myaccount.google.com/security
+2. Créez un **mot de passe d'application** : https://myaccount.google.com/apppasswords
+3. Dans `.env`, remplissez ces lignes, puis relancez `runserver` :
+
+```ini
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_USER=votre.adresse@gmail.com
+EMAIL_PASSWORD=abcdefghijklmnop
+```
+
+Sans `EMAIL_HOST`, les e-mails s'affichent dans la console du serveur. Les e-mails d'alerte partent pour les niveaux **bas** et **haut**.
+
+### Notifications sur le téléphone (ntfy)
+
+1. Installez l'application gratuite **ntfy** (Play Store ou App Store). Aucun compte n'est nécessaire.
+2. Dans SmartWater, ouvrez **Paramètres → Notifications** et activez « téléphone ». Un nom de sujet secret est proposé, par exemple `smartwater-1d57a53ed670`. Enregistrez.
+3. Dans l'application ntfy, touchez **+** et abonnez-vous à ce même sujet.
+4. Cliquez sur **Envoyer un test**.
+
+Le téléphone reçoit alors toutes les alertes :
+- bas : priorité maximale ;
+- haut : priorité haute ;
+- info : priorité normale.
+
+⚠️ Sur ntfy.sh, toute personne qui connaît le nom du sujet peut lire les messages : gardez-le secret.
+Pour plus de confidentialité, vous pouvez installer votre propre serveur ntfy et renseigner `NTFY_SERVEUR` et `NTFY_TOKEN`.
+
 ## Tests
 
 ```bat

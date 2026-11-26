@@ -140,13 +140,35 @@ DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 
 # --- E-mail (mot de passe oublié, alertes) ---------------------------------
-# En développement les e-mails s'affichent dans la console du serveur.
-MAILERS = {
-    'default': {
-        'BACKEND': env('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend'),
-    },
-}
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', 'SmartWater IoT <no-reply@smartwater.local>')
+# Sans EMAIL_HOST : les e-mails s'affichent dans la console du serveur.
+# Avec Gmail : EMAIL_HOST=smtp.gmail.com, EMAIL_PORT=587, EMAIL_USER=votre@gmail.com,
+# EMAIL_PASSWORD=<mot de passe d'application à 16 lettres> (voir README).
+EMAIL_SMTP_ACTIF = bool(env('EMAIL_HOST'))
+if EMAIL_SMTP_ACTIF:
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+            'OPTIONS': {
+                'host': env('EMAIL_HOST'),
+                'port': int(env('EMAIL_PORT', '587')),
+                'username': env('EMAIL_USER', ''),
+                'password': env('EMAIL_PASSWORD', ''),
+                'use_tls': env_bool('EMAIL_USE_TLS', True),
+                'timeout': 15,
+            },
+        },
+    }
+else:
+    MAILERS = {'default': {'BACKEND': 'django.core.mail.backends.console.EmailBackend'}}
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', f"SmartWater IoT <{env('EMAIL_USER') or 'no-reply@smartwater.local'}>")
+
+# Adresse publique du site (lien dans les e-mails et notifications)
+SITE_URL = env('SITE_URL', 'http://127.0.0.1:8000').rstrip('/')
+
+# --- Notifications sur téléphone (ntfy) ------------------------------------
+# Application gratuite ntfy (Android / iPhone) : https://ntfy.sh
+NTFY_SERVEUR = env('NTFY_SERVEUR', 'https://ntfy.sh').rstrip('/')
+NTFY_TOKEN = env('NTFY_TOKEN', '')   # seulement pour un serveur ntfy protégé
 
 
 # --- API REST --------------------------------------------------------------

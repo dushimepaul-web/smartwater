@@ -1,6 +1,8 @@
 from datetime import timedelta
+from unittest import mock
 
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -142,7 +144,8 @@ class RolesTests(Base):
         self.assertContains(self.client.get(reverse('roles')), 'Paul')
         self.client.post(reverse('role_ajouter'), {'nom': 'technicien', 'libelle': 'Technicien', 'description': ''})
         tech = Role.objects.get(nom='technicien')
-        self.client.post(reverse('role_utilisateur', args=[self.paul.pk]), {'role': tech.pk, 'is_active': 'on'})
+        self.client.post(reverse('utilisateur_modifier', args=[self.paul.pk]),
+                         {'nom': 'Paul', 'email': 'paul@test.bi', 'role': tech.pk, 'is_active': 'on'})
         self.paul.refresh_from_db()
         self.assertEqual(self.paul.role, tech)
         # rôle utilisé : suppression refusée
@@ -154,7 +157,8 @@ class RolesTests(Base):
         self.client.post(reverse('role_supprimer', args=[admin_role.pk]))
         self.assertTrue(Role.objects.filter(nom='admin').exists())
         simple = Role.objects.get(nom='utilisateur')
-        self.client.post(reverse('role_utilisateur', args=[self.admin.pk]), {'role': simple.pk, 'is_active': 'on'})
+        self.client.post(reverse('utilisateur_modifier', args=[self.admin.pk]),
+                         {'nom': 'Admin', 'email': 'admin@test.bi', 'role': simple.pk, 'is_active': 'on'})
         self.admin.refresh_from_db()
         self.assertTrue(self.admin.est_admin)
 
@@ -215,3 +219,150 @@ class ApiTests(Base):
         s = self.api.get(reverse('api-reservoir-serie', args=[self.res.pk]), {'periode': '24h'}).json()
         self.assertEqual(len(s['points']), 23)
         self.assertTrue(all(p['niveau'] == 50 for p in s['points']))
+
+
+class GestionUtilisateursTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.admin)
+
+    def test_creer_modifier_utilisateur(self):
+        tech = Role.objects.create(nom='technicien', libelle='Technicien')
+        r = self.client.post(reverse('utilisateur_ajouter'), {
+            'nom': 'Marie', 'email': 'Marie@Test.bi', 'role': tech.pk, 'is_active': 'on', 'mot_de_passe': MDP})
+        self.assertRedirects(r, reverse('roles'))
+        marie = Utilisateur.objects.get(email='marie@test.bi')
+        self.assertEqual(marie.role, tech)
+        self.assertTrue(marie.check_password(MDP))
+        # mot de passe trop simple refusé, e-mail déjà pris refusé
+        r = self.client.post(reverse('utilisateur_ajouter'), {
+            'nom': 'X', 'email': 'paul@test.bi', 'role': tech.pk, 'mot_de_passe': '123'})
+        self.assertContains(r, 'existe déjà')
+        self.assertContains(r, 'trop court')
+        # modification sans mot de passe : l'ancien est conservé ; désactivation
+        self.client.post(reverse('utilisateur_modifier', args=[marie.pk]), {
+            'nom': 'Marie N.', 'email': 'marie@test.bi', 'role': tech.pk, 'mot_de_passe': ''})
+        marie.refresh_from_db()
+        self.assertEqual(marie.nom, 'Marie N.')
+        self.assertFalse(marie.is_active)
+        self.assertTrue(marie.check_password(MDP))
+        # un compte désactivé ne peut plus se connecter
+        self.client.logout()
+        r = self.client.post(reverse('login'), {'username': 'marie@test.bi', 'password': MDP})
+        self.assertEqual(r.status_code, 200)
+
+    def test_supprimer_avec_transfert(self):
+        r = self.client.get(reverse('utilisateur_supprimer', args=[self.paul.pk]))
+        self.assertContains(r, '1 réservoir')
+        self.client.post(reverse('utilisateur_supprimer', args=[self.paul.pk]), {'transferer': 'on'})
+        self.assertFalse(Utilisateur.objects.filter(pk=self.paul.pk).exists())
+        self.res.refresh_from_db()
+        self.assertEqual(self.res.utilisateur, self.admin)
+
+    def test_supprimer_sans_transfert(self):
+        self.client.post(reverse('utilisateur_supprimer', args=[self.paul.pk]))
+        self.assertFalse(Reservoir.objects.filter(pk=self.res.pk).exists())
+
+    def test_protections(self):
+        # pas de suppression de soi-même
+        self.client.post(reverse('utilisateur_supprimer', args=[self.admin.pk]))
+        self.assertTrue(Utilisateur.objects.filter(pk=self.admin.pk).exists())
+        # le dernier admin ne peut pas être désactivé
+        self.client.post(reverse('utilisateur_modifier', args=[self.admin.pk]), {
+            'nom': 'Admin', 'email': 'admin@test.bi', 'role': self.admin.role_id})
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+        # un utilisateur simple n'a pas accès
+        self.client.force_login(self.paul)
+        self.client.post(reverse('utilisateur_supprimer', args=[self.autre.pk]))
+        self.assertTrue(Utilisateur.objects.filter(pk=self.autre.pk).exists())
+
+
+class FilSynchrone:
+    """Remplace threading.Thread dans les tests : exécute tout de suite."""
+    def __init__(self, target, daemon=None):
+        self.target = target
+
+    def start(self):
+        self.target()
+
+
+class FausseReponse:
+    status = 200
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+@mock.patch('alertes.notifications.threading.Thread', FilSynchrone)
+class NotificationsTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.paul.notif_email = True
+        self.paul.notif_push = True
+        self.paul.ntfy_topic = 'smartwater-test-123'
+        self.paul.save()
+
+    def test_alerte_envoyee_par_email_et_ntfy(self):
+        with mock.patch('alertes.notifications.urllib.request.urlopen', return_value=FausseReponse()) as envoi:
+            with self.captureOnCommitCallbacks(execute=True):
+                enregistrer_mesure(self.capteur, 50)
+            with self.captureOnCommitCallbacks(execute=True):
+                enregistrer_mesure(self.capteur, 90)   # 10 % -> critique
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['paul@test.bi'])
+        self.assertIn('Critique', mail.outbox[0].subject)
+        envoi.assert_called_once()
+        req = envoi.call_args[0][0]
+        self.assertEqual(req.full_url, 'https://ntfy.sh/')
+        corps = __import__('json').loads(req.data)
+        self.assertEqual((corps['topic'], corps['priority']), ('smartwater-test-123', 5))
+        self.assertIn('Critique', corps['title'])
+        self.assertIn('trop bas', corps['message'])
+
+    def test_preferences_respectees(self):
+        self.paul.notif_email = False
+        self.paul.notif_push = False
+        self.paul.save()
+        with mock.patch('alertes.notifications.urllib.request.urlopen') as envoi:
+            with self.captureOnCommitCallbacks(execute=True):
+                enregistrer_mesure(self.capteur, 50)
+            with self.captureOnCommitCallbacks(execute=True):
+                enregistrer_mesure(self.capteur, 90)
+        self.assertEqual(len(mail.outbox), 0)
+        envoi.assert_not_called()
+
+    def test_ntfy_en_panne_ne_bloque_pas(self):
+        with mock.patch('alertes.notifications.urllib.request.urlopen', side_effect=OSError('réseau')):
+            with self.captureOnCommitCallbacks(execute=True):
+                enregistrer_mesure(self.capteur, 50)
+            with self.captureOnCommitCallbacks(execute=True):
+                m, alerte = enregistrer_mesure(self.capteur, 90)
+        self.assertIsNotNone(alerte)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_bouton_test_et_parametres(self):
+        self.client.force_login(self.paul)
+        r = self.client.post(reverse('parametres'), {'section': 'notifications', 'notif_push': 'on', 'ntfy_topic': 'a b'})
+        self.assertContains(r, 'lettres, chiffres')
+        r = self.client.post(reverse('parametres'), {'section': 'notifications', 'notif_push': 'on'})
+        self.assertContains(r, 'Indiquez le sujet ntfy')
+        with mock.patch('alertes.notifications.urllib.request.urlopen', return_value=FausseReponse()) as envoi:
+            r = self.client.post(reverse('parametres'), {'section': 'test'}, follow=True)
+        self.assertContains(r, 'Notification envoyée')
+        self.assertEqual(len(mail.outbox), 1)
+        envoi.assert_called_once()
+
+    @override_settings(MAILERS={'default': {'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+                                            'OPTIONS': {'host': 'smtp.invalide.local', 'port': 587, 'timeout': 2}}},
+                       EMAIL_SMTP_ACTIF=True)
+    def test_echec_smtp_affiche(self):
+        self.paul.notif_push = False
+        self.paul.save()
+        self.client.force_login(self.paul)
+        with mock.patch('django.core.mail.backends.smtp.EmailBackend.send_messages', side_effect=OSError('refusé')):
+            r = self.client.post(reverse('parametres'), {'section': 'test'}, follow=True)
+        self.assertContains(r, "Échec de l&#x27;envoi de l&#x27;e-mail")

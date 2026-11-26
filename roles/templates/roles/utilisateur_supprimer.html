@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block titre %}Supprimer {{ cible }}{% endblock %}
+{% block titre_page %}<svg class="i"><use href="#i-trash"/></svg>Supprimer l’utilisateur « {{ cible }} »{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px"><form method="post">{% csrf_token %}
+<p>Le compte <b>{{ cible.email }}</b> sera supprimé définitivement.</p>
+{% if cible.nb_res %}<p>Il possède <b>{{ cible.nb_res }} réservoir{{ cible.nb_res|pluralize }}</b>.</p>
+<div class="opt"><span>Transférer ses réservoirs (et leurs mesures) sur mon compte<br><span class="help">Sinon ils seront supprimés avec toutes leurs mesures et alertes.</span></span><label class="switch"><input type="checkbox" name="transferer" checked><i></i></label></div>{% endif %}
+<div class="row" style="margin-top:18px;justify-content:flex-end"><a class="btn ghost" href="{% url 'roles' %}">Annuler</a><button class="btn red" type="submit"><svg class="i"><use href="#i-trash"/></svg>Supprimer</button></div>
+</form></div>
+{% endblock %}

@@ -10,7 +10,7 @@ class UtilisateurAdminForm(forms.ModelForm):
 
     class Meta:
         model = Utilisateur
-        fields = ['nom', 'email', 'role', 'is_active', 'notif_email', 'notif_push', 'notif_son']
+        fields = ['nom', 'email', 'role', 'is_active', 'notif_email', 'notif_push', 'notif_son', 'ntfy_topic']
 
     def save(self, commit=True):
         user = super().save(commit=False)

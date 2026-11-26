@@ -229,35 +229,36 @@ CREATE TABLE `django_migrations` (
   `name` varchar(255) NOT NULL,
   `applied` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 LOCK TABLES `django_migrations` WRITE;
 /*!40000 ALTER TABLE `django_migrations` DISABLE KEYS */;
 INSERT INTO `django_migrations` VALUES
-(1,'roles','0001_initial','2026-11-26 00:27:10.480595'),
-(2,'accounts','0001_initial','2026-11-26 00:27:10.491030'),
-(3,'contenttypes','0001_initial','2026-11-26 00:27:10.498881'),
-(4,'admin','0001_initial','2026-11-26 00:27:10.517556'),
-(5,'admin','0002_logentry_remove_auto_add','2026-11-26 00:27:10.520610'),
-(6,'admin','0003_logentry_add_action_flag_choices','2026-11-26 00:27:10.523718'),
-(7,'reservoirs','0001_initial','2026-11-26 00:27:10.567377'),
-(8,'alertes','0001_initial','2026-11-26 00:27:10.581441'),
-(9,'contenttypes','0002_remove_content_type_name','2026-11-26 00:27:10.598981'),
-(10,'auth','0001_initial','2026-11-26 00:27:10.656921'),
-(11,'auth','0002_alter_permission_name_max_length','2026-11-26 00:27:10.669944'),
-(12,'auth','0003_alter_user_email_max_length','2026-11-26 00:27:10.674514'),
-(13,'auth','0004_alter_user_username_opts','2026-11-26 00:27:10.678870'),
-(14,'auth','0005_alter_user_last_login_null','2026-11-26 00:27:10.683283'),
-(15,'auth','0006_require_contenttypes_0002','2026-11-26 00:27:10.684420'),
-(16,'auth','0007_alter_validators_add_error_messages','2026-11-26 00:27:10.695382'),
-(17,'auth','0008_alter_user_username_max_length','2026-11-26 00:27:10.699516'),
-(18,'auth','0009_alter_user_last_name_max_length','2026-11-26 00:27:10.703944'),
-(19,'auth','0010_alter_group_name_max_length','2026-11-26 00:27:10.714156'),
-(20,'auth','0011_update_proxy_permissions','2026-11-26 00:27:10.720836'),
-(21,'auth','0012_alter_user_first_name_max_length','2026-11-26 00:27:10.724700'),
-(22,'roles','0002_roles_par_defaut','2026-11-26 00:27:10.734491'),
-(23,'sessions','0001_initial','2026-11-26 00:27:10.741026');
+(1,'roles','0001_initial','2026-11-26 00:40:54.714125'),
+(2,'accounts','0001_initial','2026-11-26 00:40:54.725863'),
+(3,'accounts','0002_notifications_telephone','2026-11-26 00:40:54.735301'),
+(4,'contenttypes','0001_initial','2026-11-26 00:40:54.743249'),
+(5,'admin','0001_initial','2026-11-26 00:40:54.758743'),
+(6,'admin','0002_logentry_remove_auto_add','2026-11-26 00:40:54.762426'),
+(7,'admin','0003_logentry_add_action_flag_choices','2026-11-26 00:40:54.766292'),
+(8,'reservoirs','0001_initial','2026-11-26 00:40:54.810098'),
+(9,'alertes','0001_initial','2026-11-26 00:40:54.822961'),
+(10,'contenttypes','0002_remove_content_type_name','2026-11-26 00:40:54.840681'),
+(11,'auth','0001_initial','2026-11-26 00:40:54.885897'),
+(12,'auth','0002_alter_permission_name_max_length','2026-11-26 00:40:54.897937'),
+(13,'auth','0003_alter_user_email_max_length','2026-11-26 00:40:54.908463'),
+(14,'auth','0004_alter_user_username_opts','2026-11-26 00:40:54.912526'),
+(15,'auth','0005_alter_user_last_login_null','2026-11-26 00:40:54.916880'),
+(16,'auth','0006_require_contenttypes_0002','2026-11-26 00:40:54.918051'),
+(17,'auth','0007_alter_validators_add_error_messages','2026-11-26 00:40:54.922213'),
+(18,'auth','0008_alter_user_username_max_length','2026-11-26 00:40:54.927187'),
+(19,'auth','0009_alter_user_last_name_max_length','2026-11-26 00:40:54.930757'),
+(20,'auth','0010_alter_group_name_max_length','2026-11-26 00:40:54.940638'),
+(21,'auth','0011_update_proxy_permissions','2026-11-26 00:40:54.946429'),
+(22,'auth','0012_alter_user_first_name_max_length','2026-11-26 00:40:54.950443'),
+(23,'roles','0002_roles_par_defaut','2026-11-26 00:40:54.960463'),
+(24,'sessions','0001_initial','2026-11-26 00:40:54.968289');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `django_session`;
@@ -337,9 +338,9 @@ CREATE TABLE `roles` (
 LOCK TABLES `roles` WRITE;
 /*!40000 ALTER TABLE `roles` DISABLE KEYS */;
 INSERT INTO `roles` VALUES
-(1,'admin','Administrateur','Accès complet au système',1,'2026-11-26 00:27:10.731811'),
-(2,'utilisateur','Utilisateur','Consulte et gère ses propres réservoirs',0,'2026-11-26 00:27:10.733566'),
-(3,'technicien','Technicien','Installe et entretient les capteurs de ses réservoirs',0,'2026-11-26 00:27:11.117868');
+(1,'admin','Administrateur','Accès complet au système',1,'2026-11-26 00:40:54.957566'),
+(2,'utilisateur','Utilisateur','Consulte et gère ses propres réservoirs',0,'2026-11-26 00:40:54.959431'),
+(3,'technicien','Technicien','Installe et entretient les capteurs de ses réservoirs',0,'2026-11-26 00:40:55.365515');
 /*!40000 ALTER TABLE `roles` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `utilisateurs`;
@@ -357,6 +358,7 @@ CREATE TABLE `utilisateurs` (
   `notif_push` tinyint(1) NOT NULL,
   `notif_son` tinyint(1) NOT NULL,
   `id_role` int(11) NOT NULL,
+  `ntfy_topic` varchar(64) NOT NULL,
   PRIMARY KEY (`id_utilisateur`),
   UNIQUE KEY `email` (`email`),
   KEY `utilisateurs_id_role_7ea69c33_fk_roles_id_role` (`id_role`),
@@ -367,7 +369,7 @@ CREATE TABLE `utilisateurs` (
 LOCK TABLES `utilisateurs` WRITE;
 /*!40000 ALTER TABLE `utilisateurs` DISABLE KEYS */;
 INSERT INTO `utilisateurs` VALUES
-(1,'Administrateur','admin@smartwater.local','pbkdf2_sha256$1500000$qeLa4IAvBYQv1NgFlP6NN7$xZvAYN/BNzIeOVW1FR+Lybhv6041Deu0tbzTNOr1A9M=',1,NULL,'2026-11-26 00:27:11.352719',1,1,0,1);
+(1,'Administrateur','admin@smartwater.local','pbkdf2_sha256$1500000$WoTys2EcNqbyJzBl4IeNGC$eHsn0Nvha/s5O6fYPTcBsvOaqcfpsc0sCGh1YZQjXpM=',1,NULL,'2026-11-26 00:40:55.603606',1,0,0,1,'');
 /*!40000 ALTER TABLE `utilisateurs` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

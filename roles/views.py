@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -6,10 +7,15 @@ from django.views.decorators.http import require_POST
 from accounts.decorators import admin_requis
 from accounts.models import Utilisateur
 
-from .forms import RoleForm, RoleUtilisateurForm
+from .forms import RoleForm, UtilisateurForm
 from .models import Role
 
 ROLES_SYSTEME = {Role.ADMIN, Role.UTILISATEUR}
+
+
+def _reste_un_admin(sans):
+    """Vrai s'il reste un administrateur actif en dehors de l'utilisateur `sans`."""
+    return Utilisateur.objects.filter(role__est_administrateur=True, is_active=True).exclude(pk=sans.pk).exists()
 
 
 @admin_requis
@@ -17,11 +23,10 @@ def index(request):
     return render(request, 'roles/roles.html', {
         'roles': Role.objects.annotate(nb=Count('utilisateurs')),
         'utilisateurs': Utilisateur.objects.select_related('role').annotate(nb_res=Count('reservoirs')),
-        'form': RoleForm(),
-        'tous_roles': Role.objects.all(),
     })
 
 
+# ---------- Rôles ----------
 @admin_requis
 def role_form(request, pk=None):
     role = get_object_or_404(Role, pk=pk) if pk else None
@@ -52,21 +57,39 @@ def role_supprimer(request, pk):
     return redirect('roles')
 
 
+# ---------- Utilisateurs ----------
 @admin_requis
-@require_POST
-def utilisateur_role(request, pk):
-    cible = get_object_or_404(Utilisateur, pk=pk)
-    etait_admin = cible.est_admin and cible.is_active
-    form = RoleUtilisateurForm(request.POST, instance=cible)
-    if form.is_valid():
-        perd_admin = etait_admin and not form.cleaned_data['role'].est_administrateur
-        desactive = etait_admin and not form.cleaned_data['is_active']
-        autres_admins = Utilisateur.objects.filter(role__est_administrateur=True, is_active=True).exclude(pk=cible.pk)
-        if (perd_admin or desactive) and not autres_admins.exists():
+def utilisateur_form(request, pk=None):
+    cible = get_object_or_404(Utilisateur, pk=pk) if pk else None
+    etait_admin = bool(cible and cible.est_admin and cible.is_active)
+    form = UtilisateurForm(request.POST or None, instance=cible)
+    if request.method == 'POST' and form.is_valid():
+        reste_admin = form.cleaned_data['role'].est_administrateur and form.cleaned_data['is_active']
+        if etait_admin and not reste_admin and not _reste_un_admin(cible):
             messages.error(request, 'Il doit rester au moins un administrateur actif.')
         else:
-            form.save()
-            messages.success(request, f'Rôle de {cible.nom} mis à jour : {cible.role}.')
-    else:
-        messages.error(request, 'Modification invalide.')
-    return redirect('roles')
+            user = form.save()
+            messages.success(request, f'Utilisateur « {user.nom} » {"modifié" if cible else "créé"}.')
+            return redirect('roles')
+    return render(request, 'roles/utilisateur_form.html', {'form': form, 'cible': cible})
+
+
+@admin_requis
+def utilisateur_supprimer(request, pk):
+    cible = get_object_or_404(Utilisateur.objects.annotate(nb_res=Count('reservoirs')), pk=pk)
+    if cible == request.user:
+        messages.error(request, 'Vous ne pouvez pas supprimer votre propre compte.')
+        return redirect('roles')
+    if cible.est_admin and cible.is_active and not _reste_un_admin(cible):
+        messages.error(request, 'Impossible de supprimer le dernier administrateur actif.')
+        return redirect('roles')
+    if request.method == 'POST':
+        with transaction.atomic():
+            if request.POST.get('transferer') and cible.nb_res:
+                cible.reservoirs.update(utilisateur=request.user)
+                messages.info(request, f'{cible.nb_res} réservoir(s) transféré(s) sur votre compte.')
+            nom = cible.nom
+            cible.delete()
+        messages.success(request, f'Utilisateur « {nom} » supprimé.')
+        return redirect('roles')
+    return render(request, 'roles/utilisateur_supprimer.html', {'cible': cible})

@@ -2,16 +2,13 @@
 
 Utilisé par l'API REST (ESP32 en HTTP), le client MQTT et le simulateur.
 """
-import logging
-
 from django.db import transaction
 from django.utils import timezone
 
 from alertes.models import Alerte
+from alertes.notifications import notifier_alerte
 
 from .models import Capteur, Mesure
-
-log = logging.getLogger(__name__)
 
 
 class MesureInvalide(ValueError):
@@ -68,17 +65,6 @@ def enregistrer_mesure(capteur: Capteur, distance_cm, date=None):
         Alerte.objects.create(reservoir=reservoir, type=Alerte.INFO,
                               message=f'Capteur #{capteur.id_capteur} de nouveau en ligne – {reservoir.nom}')
 
-    if alerte and alerte.type != Alerte.INFO:
-        transaction.on_commit(lambda: notifier_par_email(alerte))
+    if alerte:
+        transaction.on_commit(lambda: notifier_alerte(alerte))
     return mesure, alerte
-
-
-def notifier_par_email(alerte):
-    user = alerte.reservoir.utilisateur
-    if not user.notif_email or not user.email:
-        return
-    try:
-        from django.core.mail import send_mail
-        send_mail(f'[SmartWater] {alerte.get_type_display()}', alerte.message, None, [user.email])
-    except Exception:  # un problème d'e-mail ne doit pas bloquer la réception des mesures
-        log.exception("Envoi de l'e-mail d'alerte impossible")

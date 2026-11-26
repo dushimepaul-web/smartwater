@@ -38,8 +38,11 @@ class Utilisateur(AbstractBaseUser):
 
     # Préférences de notification (écran Paramètres)
     notif_email = models.BooleanField('alertes par e-mail', default=True)
-    notif_push = models.BooleanField('notifications push', default=True)
-    notif_son = models.BooleanField('alertes sonores', default=False)
+    notif_push = models.BooleanField('notifications téléphone (ntfy)', default=False)
+    notif_son = models.BooleanField('alertes sonores et navigateur', default=False)
+    # Sujet ntfy (https://ntfy.sh) : l'application ntfy du téléphone affiche les alertes
+    ntfy_topic = models.CharField('sujet ntfy (téléphone)', max_length=64, blank=True, default='',
+                                  help_text='Nom secret du canal ntfy auquel le téléphone est abonné')
 
     objects = UtilisateurManager()
 

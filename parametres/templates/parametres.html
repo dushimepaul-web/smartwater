@@ -15,10 +15,15 @@
 
 <div class="pane {% if onglet == 'notifications' %}on{% endif %}" id="notifications"><div class="card" style="padding:16px 22px">
 <form method="post">{% csrf_token %}<input type="hidden" name="section" value="notifications"><h3>Notifications</h3>
-<div class="opt"><span>Recevoir des alertes par e-mail <span class="help">({{ user.email }})</span></span><label class="switch"><input type="checkbox" name="notif_email" {% if notifs.notif_email.value %}checked{% endif %}><i></i></label></div>
-<div class="opt"><span>Recevoir des notifications push (navigateur)</span><label class="switch"><input type="checkbox" name="notif_push" {% if notifs.notif_push.value %}checked{% endif %}><i></i></label></div>
-<div class="opt"><span>Activer les alertes sonores</span><label class="switch"><input type="checkbox" name="notif_son" {% if notifs.notif_son.value %}checked{% endif %}><i></i></label></div>
-<div style="margin-top:12px"><button class="btn" type="submit"><svg class="i"><use href="#i-check"/></svg>Enregistrer</button></div></form></div></div>
+<div class="opt"><span>Recevoir les alertes par e-mail <span class="help">({{ user.email }}{% if not email_reel %} – envoi réel non configuré, voir README{% endif %})</span></span><label class="switch"><input type="checkbox" name="notif_email" {% if notifs.notif_email.value %}checked{% endif %}><i></i></label></div>
+<div class="opt"><span>Recevoir les alertes sur le téléphone (application ntfy)</span><label class="switch"><input type="checkbox" name="notif_push" {% if notifs.notif_push.value %}checked{% endif %}><i></i></label></div>
+<div style="max-width:520px"><label class="f" for="id_ntfy_topic">Sujet ntfy (nom secret de votre canal)</label>
+<input type="text" name="ntfy_topic" id="id_ntfy_topic" value="{{ notifs.ntfy_topic.value|default:topic_suggere }}">{{ notifs.ntfy_topic.errors }}
+<div class="help">1. Installez l’application gratuite <b>ntfy</b> (Play Store / App Store). 2. Touchez <b>+</b> et abonnez-vous au sujet ci-dessus{% if ntfy_serveur != 'https://ntfy.sh' %} sur le serveur {{ ntfy_serveur }}{% endif %}. 3. Enregistrez puis « Envoyer un test ». Gardez ce nom secret : toute personne qui le connaît peut lire vos alertes.</div></div>
+<div class="opt"><span>Alertes sonores et notifications du navigateur (tableau de bord ouvert)</span><label class="switch"><input type="checkbox" name="notif_son" {% if notifs.notif_son.value %}checked{% endif %}><i></i></label></div>
+<div class="row" style="margin-top:12px"><button class="btn" type="submit"><svg class="i"><use href="#i-check"/></svg>Enregistrer</button></div></form>
+<form method="post" style="margin-top:10px">{% csrf_token %}<input type="hidden" name="section" value="test"><button class="btn ghost" type="submit"><svg class="i"><use href="#i-bell"/></svg>Envoyer un test (e-mail + téléphone)</button></form>
+</div></div>
 
 <div class="pane {% if onglet == 'appareil' %}on{% endif %}" id="appareil"><div class="card">
 {% if appareil %}<form method="post">{% csrf_token %}<input type="hidden" name="section" value="appareil"><input type="hidden" name="reservoir" value="{{ choisi.pk }}">
