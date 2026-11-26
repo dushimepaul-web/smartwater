@@ -1,3 +1,9 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import Alerte
+
+
+@admin.register(Alerte)
+class AlerteAdmin(admin.ModelAdmin):
+    list_display = ['id_alerte', 'reservoir', 'type', 'message', 'lue', 'date_alerte']
+    list_filter = ['type', 'lue', 'reservoir']

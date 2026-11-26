@@ -1,0 +1,4 @@
+{% extends "base_auth.html" %}{% block titre %}E-mail envoyé{% endblock %}
+{% block content %}<div class="lock"><svg class="i"><use href="#i-mail"/></svg></div><h2>Vérifiez vos e-mails</h2>
+<p class="sub">Si un compte existe pour cette adresse, un lien de réinitialisation vient d'être envoyé.</p>
+<p class="center"><a href="{% url 'login' %}">Retour à la connexion</a></p>{% endblock %}

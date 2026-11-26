@@ -1,0 +1,8 @@
+{% extends "base_auth.html" %}{% block titre %}Nouveau mot de passe{% endblock %}
+{% block content %}<div class="lock"><svg class="i"><use href="#i-lock"/></svg></div><h2>Nouveau mot de passe</h2>
+{% if validlink %}<form method="post">{% csrf_token %}
+<div class="field"><svg class="i"><use href="#i-lock"/></svg><input type="password" name="new_password1" placeholder="Nouveau mot de passe" required></div>{{ form.new_password1.errors }}
+<div class="field"><svg class="i"><use href="#i-lock"/></svg><input type="password" name="new_password2" placeholder="Confirmer" required></div>{{ form.new_password2.errors }}
+<button class="btn full" type="submit"><svg class="i"><use href="#i-check"/></svg>Enregistrer</button></form>
+{% else %}<p class="sub">Ce lien n'est plus valide. <a href="{% url 'password_reset' %}">Demander un nouveau lien</a>.</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% load static %}<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titre %}SmartWater IoT{% endblock %} – SmartWater IoT</title>
+<link rel="icon" href="{% static 'img/logo.svg' %}"><link rel="stylesheet" href="{% static 'css/style.css' %}"></head>
+<body>{% include "includes/icones.html" %}
+{% with vue=request.resolver_match.url_name %}
+<div class="app">
+<aside class="sidebar"><div class="brand"><img src="{% static 'img/logo.svg' %}" alt="">SmartWater IoT</div>
+<nav>
+<a href="{% url 'dashboard' %}" class="{% if vue == 'dashboard' %}active{% endif %}"><svg class="i"><use href="#i-home"/></svg>Tableau de bord</a>
+<a href="{% url 'reservoirs' %}" class="{% if vue|slice:':9' == 'reservoir' %}active{% endif %}"><svg class="i"><use href="#i-tank"/></svg>Réservoirs</a>
+<a href="{% url 'historique' %}" class="{% if vue|slice:':10' == 'historique' %}active{% endif %}"><svg class="i"><use href="#i-hist"/></svg>Historique</a>
+<a href="{% url 'alertes' %}" class="{% if vue|slice:':6' == 'alerte' %}active{% endif %}"><svg class="i"><use href="#i-bell"/></svg>Alertes{% if nb_alertes_non_lues %}<span class="count">{{ nb_alertes_non_lues }}</span>{% endif %}</a>
+<a href="{% url 'parametres' %}" class="{% if vue == 'parametres' %}active{% endif %}"><svg class="i"><use href="#i-gear"/></svg>Paramètres</a>
+{% if user.est_admin %}<a href="{% url 'roles' %}" class="{% if vue|slice:':4' == 'role' %}active{% endif %}"><svg class="i"><use href="#i-users"/></svg>Rôles &amp; utilisateurs</a>{% endif %}
+<a href="{% url 'api-racine' %}"><svg class="i"><use href="#i-api"/></svg>API</a>
+</nav>
+<form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="logout" type="submit"><svg class="i"><use href="#i-out"/></svg>Déconnexion</button></form>
+</aside>
+<div class="main">
+<header class="topbar"><button class="burger" type="button" aria-label="Menu"><svg class="i"><use href="#i-menu"/></svg></button>
+<div class="user"><div class="avatar">{{ user.initiale }}</div>{{ user.nom }} <small class="muted">({{ user.role }})</small></div></header>
+<main class="content">
+<h1 class="title">{% block titre_page %}{% endblock %}</h1>
+{% if messages %}<div class="msgs">{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}</div>{% endif %}
+{% block content %}{% endblock %}
+</main></div></div>
+{% endwith %}
+<script>window.SMARTWATER_PREFS = {push: {{ user.notif_push|yesno:"true,false" }}, son: {{ user.notif_son|yesno:"true,false" }}};</script>
+<script src="{% static 'js/app.js' %}"></script>{% block scripts %}{% endblock %}</body></html>

@@ -1,0 +1,217 @@
+from datetime import timedelta
+
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+from rest_framework.test import APIClient
+
+from accounts.models import Utilisateur
+from alertes.models import Alerte
+from reservoirs.models import Capteur, Mesure, Reservoir
+from reservoirs.services import enregistrer_mesure
+from roles.models import Role
+
+MDP = 'UnMotDePasse!2026'
+
+
+class Base(TestCase):
+    def setUp(self):
+        self.admin = Utilisateur.objects.create_superuser('admin@test.bi', 'Admin', MDP)
+        self.paul = Utilisateur.objects.create_user('paul@test.bi', 'Paul', MDP)
+        self.autre = Utilisateur.objects.create_user('autre@test.bi', 'Autre', MDP)
+        self.res = Reservoir.objects.create(utilisateur=self.paul, nom='Cuve Paul', capacite_litres=1000)
+        self.capteur = Capteur.objects.create(reservoir=self.res, hauteur_cm=100)
+
+
+class ModelesTests(Base):
+    def test_formule_du_pdf(self):
+        # (100 - 45.5) / 100 * 100 = 54.5 %
+        self.assertEqual(self.capteur.calculer_niveau(45.5), 54.5)
+        self.assertEqual(self.capteur.calculer_niveau(150), 0)
+        self.assertEqual(self.capteur.calculer_niveau(-5), 100)
+
+    def test_mot_de_passe_hache_et_roles(self):
+        self.assertTrue(self.paul.password.startswith('pbkdf2_'))
+        self.assertTrue(self.paul.check_password(MDP))
+        self.assertEqual(self.paul.role.nom, Role.UTILISATEUR)
+        self.assertTrue(self.admin.est_admin and self.admin.is_staff)
+        self.assertFalse(self.paul.est_admin)
+
+    def test_alertes_seulement_au_franchissement_du_seuil(self):
+        enregistrer_mesure(self.capteur, 50)      # 50 % normal
+        enregistrer_mesure(self.capteur, 85)      # 15 % -> bas
+        enregistrer_mesure(self.capteur, 88)      # 12 % toujours bas : pas de nouvelle alerte
+        enregistrer_mesure(self.capteur, 10)      # 90 % -> haut
+        enregistrer_mesure(self.capteur, 40)      # 60 % -> retour normal
+        types = list(Alerte.objects.order_by('id_alerte').values_list('type', flat=True))
+        self.assertEqual(types, ['niveau_bas', 'niveau_haut', 'info'])
+        self.capteur.refresh_from_db()
+        self.assertTrue(self.capteur.en_ligne)
+        self.assertEqual(self.capteur.statut, 'en_ligne')
+
+    def test_hors_ligne_si_silence(self):
+        self.capteur.derniere_communication = timezone.now() - timedelta(minutes=10)
+        self.assertFalse(self.capteur.en_ligne)
+
+
+class PagesTests(Base):
+    def test_pages_protegees(self):
+        for nom in ['dashboard', 'reservoirs', 'historique', 'alertes', 'parametres', 'roles']:
+            r = self.client.get(reverse(nom))
+            self.assertEqual(r.status_code, 302, nom)
+            self.assertIn(reverse('login'), r['Location'])
+
+    def test_connexion_et_toutes_les_pages(self):
+        r = self.client.post(reverse('login'), {'username': 'paul@test.bi', 'password': MDP})
+        self.assertRedirects(r, reverse('dashboard'), fetch_redirect_response=False)
+        enregistrer_mesure(self.capteur, 30)
+        for nom in ['dashboard', 'reservoirs', 'historique', 'alertes', 'parametres']:
+            r = self.client.get(reverse(nom))
+            self.assertEqual(r.status_code, 200, nom)
+        self.assertContains(self.client.get(reverse('dashboard')), 'Cuve Paul')
+        # un utilisateur simple n'a pas accès aux rôles
+        self.assertRedirects(self.client.get(reverse('roles')), reverse('dashboard'))
+        r = self.client.get(reverse('historique_export'))
+        self.assertEqual(r['Content-Type'], 'text/csv; charset=utf-8')
+        self.assertIn('70,0', r.content.decode('utf-8-sig'))
+
+    def test_mauvais_mot_de_passe(self):
+        r = self.client.post(reverse('login'), {'username': 'paul@test.bi', 'password': 'faux'})
+        self.assertContains(r, 'incorrect')
+
+    def test_inscription(self):
+        r = self.client.post(reverse('register'), {'nom': 'Nouveau', 'email': 'New@Test.bi',
+                                                   'password1': MDP, 'password2': MDP})
+        self.assertRedirects(r, reverse('reservoirs'))
+        u = Utilisateur.objects.get(email='new@test.bi')
+        self.assertEqual(u.role.nom, 'utilisateur')
+        r = self.client.post(reverse('register'), {'nom': 'X', 'email': 'paul@test.bi',
+                                                   'password1': MDP, 'password2': 'autre'})
+
+    def test_crud_reservoir(self):
+        self.client.force_login(self.paul)
+        r = self.client.post(reverse('reservoir_ajouter'), {
+            'nom': 'Citerne', 'emplacement': 'Toit', 'capacite_litres': 500, 'hauteur_cm': 80,
+            'seuil_bas': 20, 'seuil_haut': 85, 'modele': 'JSN-SR04T'})
+        nouveau = Reservoir.objects.get(nom='Citerne')
+        self.assertRedirects(r, reverse('reservoir_modifier', args=[nouveau.pk]))
+        self.assertEqual(nouveau.utilisateur, self.paul)
+        self.assertEqual(nouveau.capteurs.get().modele, 'JSN-SR04T')
+        r = self.client.post(reverse('reservoir_modifier', args=[nouveau.pk]), {
+            'nom': 'Citerne', 'capacite_litres': 500, 'hauteur_cm': 90, 'seuil_bas': 90, 'seuil_haut': 10,
+            'modele': 'JSN-SR04T'})
+        self.assertContains(r, 'supérieur au seuil bas')
+        self.client.post(reverse('reservoir_supprimer', args=[nouveau.pk]))
+        self.assertFalse(Reservoir.objects.filter(pk=nouveau.pk).exists())
+
+    def test_isolation_entre_utilisateurs(self):
+        self.client.force_login(self.autre)
+        self.assertEqual(self.client.get(reverse('reservoir_modifier', args=[self.res.pk])).status_code, 404)
+        self.client.post(reverse('reservoir_supprimer', args=[self.res.pk]))
+        self.assertTrue(Reservoir.objects.filter(pk=self.res.pk).exists())
+
+    def test_parametres(self):
+        self.client.force_login(self.paul)
+        self.client.post(reverse('parametres'), {'section': 'seuils', 'reservoir': self.res.pk,
+                                                 'seuil_bas': 30, 'seuil_haut': 80})
+        self.res.refresh_from_db()
+        self.assertEqual((self.res.seuil_bas, self.res.seuil_haut), (30, 80))
+        self.client.post(reverse('parametres'), {'section': 'notifications', 'notif_son': 'on'})
+        self.paul.refresh_from_db()
+        self.assertEqual((self.paul.notif_email, self.paul.notif_son), (False, True))
+        self.client.post(reverse('parametres'), {'section': 'appareil', 'reservoir': self.res.pk,
+                                                 'modele': 'HC-SR04', 'hauteur_cm': 120, 'frequence_envoi_s': 30})
+        self.capteur.refresh_from_db()
+        self.assertEqual((self.capteur.hauteur_cm, self.capteur.frequence_envoi_s), (120, 30))
+
+    def test_alertes_lues(self):
+        self.client.force_login(self.paul)
+        a = Alerte.objects.create(reservoir=self.res, type='niveau_bas', message='bas')
+        self.assertContains(self.client.get(reverse('alertes')), 'Critique')
+        self.client.post(reverse('alerte_lue', args=[a.pk]))
+        a.refresh_from_db()
+        self.assertTrue(a.lue)
+
+
+class RolesTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.admin)
+
+    def test_page_et_creation_role(self):
+        self.assertContains(self.client.get(reverse('roles')), 'Paul')
+        self.client.post(reverse('role_ajouter'), {'nom': 'technicien', 'libelle': 'Technicien', 'description': ''})
+        tech = Role.objects.get(nom='technicien')
+        self.client.post(reverse('role_utilisateur', args=[self.paul.pk]), {'role': tech.pk, 'is_active': 'on'})
+        self.paul.refresh_from_db()
+        self.assertEqual(self.paul.role, tech)
+        # rôle utilisé : suppression refusée
+        self.client.post(reverse('role_supprimer', args=[tech.pk]))
+        self.assertTrue(Role.objects.filter(pk=tech.pk).exists())
+
+    def test_roles_systeme_et_dernier_admin_proteges(self):
+        admin_role = Role.objects.get(nom='admin')
+        self.client.post(reverse('role_supprimer', args=[admin_role.pk]))
+        self.assertTrue(Role.objects.filter(nom='admin').exists())
+        simple = Role.objects.get(nom='utilisateur')
+        self.client.post(reverse('role_utilisateur', args=[self.admin.pk]), {'role': simple.pk, 'is_active': 'on'})
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.est_admin)
+
+    def test_admin_voit_tous_les_reservoirs(self):
+        self.assertContains(self.client.get(reverse('reservoirs')), 'Cuve Paul')
+        self.assertEqual(self.client.get(reverse('admin:index')).status_code, 200)
+
+
+class ApiTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.api = APIClient()
+
+    def test_envoi_mesure_esp32(self):
+        url = reverse('api-envoi-mesure')
+        self.assertEqual(self.api.post(url, {'distance_cm': 40}, format='json').status_code, 401)
+        r = self.api.post(url, {'distance_cm': 45.5}, format='json', HTTP_X_API_KEY=self.capteur.cle_api)
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(r.json()['niveau_pct'], 54.5)
+        r = self.api.post(url, {'distance_cm': 'abc'}, format='json', HTTP_X_API_KEY=self.capteur.cle_api)
+        self.assertEqual(r.status_code, 400)
+        r = self.api.post(url, {'distance_cm': 90, 'cle': self.capteur.cle_api}, format='json')
+        self.assertEqual(r.json()['alerte'], "Niveau d'eau trop bas (10%) – Cuve Paul")
+
+    def test_niveau_temps_reel_et_droits(self):
+        enregistrer_mesure(self.capteur, 25)
+        self.assertEqual(self.api.get(reverse('api-dashboard')).status_code, 403)
+        self.api.force_authenticate(self.paul)
+        r = self.api.get(reverse('api-reservoir-niveau', args=[self.res.pk])).json()
+        self.assertEqual((r['niveau_pct'], r['volume_litres'], r['etat']), (75.0, 750, 'normal'))
+        d = self.api.get(reverse('api-dashboard'), {'periode': '1h'}).json()
+        self.assertEqual(d['global']['nb_en_ligne'], 1)
+        self.assertEqual(len(d['serie']['points']), 1)
+        self.assertEqual(len(self.api.get(reverse('api-mesure-list')).json()), 1)
+        self.api.force_authenticate(self.autre)
+        self.assertEqual(self.api.get(reverse('api-reservoir-niveau', args=[self.res.pk])).status_code, 404)
+
+    def test_crud_reservoir_api(self):
+        self.api.force_authenticate(self.paul)
+        r = self.api.post(reverse('api-reservoir-list'), {'nom': 'API', 'capacite_litres': 200, 'hauteur_cm': 50},
+                          format='json')
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(len(r.json()['capteurs']), 1)
+        self.assertEqual(len(self.api.get(reverse('api-reservoir-list')).json()), 2)
+
+    def test_alertes_api(self):
+        a = Alerte.objects.create(reservoir=self.res, type='info', message='x')
+        self.api.force_authenticate(self.paul)
+        self.assertEqual(len(self.api.get(reverse('api-alerte-list'), {'non_lues': 1}).json()), 1)
+        self.api.post(reverse('api-alerte-lue', args=[a.pk]))
+        self.assertEqual(len(self.api.get(reverse('api-alerte-list'), {'non_lues': 1}).json()), 0)
+
+    def test_serie_regroupee(self):
+        now = timezone.now()
+        Mesure.objects.bulk_create([Mesure(capteur=self.capteur, distance_cm=50, niveau_pct=50,
+                                           date_mesure=now - timedelta(hours=h)) for h in range(1, 48)])
+        self.api.force_authenticate(self.paul)
+        s = self.api.get(reverse('api-reservoir-serie', args=[self.res.pk]), {'periode': '24h'}).json()
+        self.assertEqual(len(s['points']), 23)
+        self.assertTrue(all(p['niveau'] == 50 for p in s['points']))

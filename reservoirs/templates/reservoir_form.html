@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block titre %}{% if reservoir %}Modifier {{ reservoir }}{% else %}Ajouter un réservoir{% endif %}{% endblock %}
+{% block titre_page %}<svg class="i"><use href="#i-tank"/></svg>{% if reservoir %}Modifier « {{ reservoir }} »{% else %}Ajouter un réservoir{% endif %}{% endblock %}
+{% block content %}
+<div class="dgrid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+<div class="card"><form method="post">{% csrf_token %}{% include "includes/reservoir_champs.html" %}
+<div class="row" style="margin-top:18px;justify-content:flex-end"><a class="btn ghost" href="{% url 'reservoirs' %}">Annuler</a><button class="btn" type="submit"><svg class="i"><use href="#i-check"/></svg>Enregistrer</button></div></form></div>
+{% if capteurs %}<div class="card"><h3>Capteur et connexion de l’ESP32</h3>
+{% for c in capteurs %}
+<p><b>Capteur #{{ c.id_capteur }}</b> – {{ c.modele }} – {% if c.en_ligne %}<span class="badge">En ligne</span>{% else %}<span class="badge off">Hors ligne</span>{% endif %}
+{% if c.derniere_communication %}<br><span class="help">Dernière mesure reçue : {{ c.derniere_communication|date:"d/m/Y H:i:s" }}</span>{% endif %}</p>
+<label class="f">Clé d’API du capteur</label><code class="key">{{ c.cle_api }}</code>
+<form method="post" action="{% url 'reservoir_cle' c.pk %}" data-confirm="Générer une nouvelle clé ? L’ancienne ne fonctionnera plus." style="margin-top:8px">{% csrf_token %}<button class="btn ghost sm"><svg class="i"><use href="#i-key"/></svg>Nouvelle clé</button></form>
+<label class="f">Envoi en HTTP (POST)</label><code class="key">{{ url_api }}</code>
+<div class="help">En-tête <code>X-API-Key: {{ c.cle_api|truncatechars:12 }}</code> · corps JSON <code>{"distance_cm": 45.5}</code></div>
+<label class="f">Ou en MQTT (topic)</label><code class="key">{{ c.topic_mqtt }}</code>
+<div class="help">Message JSON <code>{"cle": "…", "distance_cm": 45.5}</code> – serveur : <code>python manage.py mqtt_listener</code></div>
+{% endfor %}</div>{% endif %}
+</div>
+{% endblock %}

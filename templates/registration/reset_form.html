@@ -1,0 +1,8 @@
+{% extends "base_auth.html" %}{% block titre %}Mot de passe oublié{% endblock %}
+{% block content %}
+<div class="lock"><svg class="i"><use href="#i-key"/></svg></div><h2>Mot de passe oublié</h2><div class="sub">Saisissez votre e-mail : nous vous enverrons un lien.</div>
+<form method="post">{% csrf_token %}{{ form.email.errors }}
+<div class="field"><svg class="i"><use href="#i-mail"/></svg><input type="email" name="email" placeholder="Adresse e-mail" required autofocus></div>
+<button class="btn full" type="submit"><svg class="i"><use href="#i-arrow"/></svg>Envoyer le lien</button></form>
+<p class="center" style="margin-top:18px"><a href="{% url 'login' %}">Retour à la connexion</a></p>
+{% endblock %}

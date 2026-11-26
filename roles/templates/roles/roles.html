@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block titre %}Rôles et utilisateurs{% endblock %}
+{% block titre_page %}<svg class="i"><use href="#i-users"/></svg>Rôles et utilisateurs{% endblock %}
+{% block content %}
+<div class="card" style="padding:0 0 4px"><div class="row between" style="padding:14px 16px 10px"><h3>Rôles</h3><a class="btn sm" href="{% url 'role_ajouter' %}"><svg class="i"><use href="#i-plus"/></svg>Ajouter un rôle</a></div>
+<div class="tw"><table><thead><tr><th>Code</th><th>Libellé</th><th>Description</th><th>Administrateur</th><th>Utilisateurs</th><th>Actions</th></tr></thead><tbody>
+{% for r in roles %}<tr><td><code class="key">{{ r.nom }}</code></td><td>{{ r.libelle }}</td><td>{{ r.description }}</td>
+<td>{% if r.est_administrateur %}<span class="badge">Oui</span>{% else %}<span class="badge off">Non</span>{% endif %}</td><td>{{ r.nb }}</td>
+<td><div class="row" style="gap:8px"><a class="ibtn" title="Modifier" href="{% url 'role_modifier' r.pk %}"><svg class="i"><use href="#i-edit"/></svg></a>
+<form method="post" action="{% url 'role_supprimer' r.pk %}" class="inline" data-confirm="Supprimer le rôle {{ r.libelle }} ?">{% csrf_token %}<button class="ibtn del" title="Supprimer"><svg class="i"><use href="#i-trash"/></svg></button></form></div></td></tr>{% endfor %}
+</tbody></table></div></div>
+
+<div class="card" style="margin-top:14px;padding:0 0 4px"><div class="row between" style="padding:14px 16px 10px"><h3>Utilisateurs</h3></div>
+<div class="tw"><table><thead><tr><th>Nom</th><th>E-mail</th><th>Réservoirs</th><th>Inscrit le</th><th>Rôle et état</th></tr></thead><tbody>
+{% for u in utilisateurs %}<tr><td><b>{{ u.nom }}</b>{% if u == user %} <span class="muted">(vous)</span>{% endif %}</td><td>{{ u.email }}</td><td>{{ u.nb_res }}</td><td>{{ u.date_creation|date:"d/m/Y" }}</td>
+<td><form method="post" action="{% url 'role_utilisateur' u.pk %}" class="row" style="gap:8px;flex-wrap:nowrap">{% csrf_token %}
+<select name="role" class="sm">{% for r in tous_roles %}<option value="{{ r.pk }}" {% if r.pk == u.role_id %}selected{% endif %}>{{ r.libelle }}</option>{% endfor %}</select>
+<label class="row" style="gap:4px;flex-wrap:nowrap"><input type="checkbox" name="is_active" {% if u.is_active %}checked{% endif %}> actif</label>
+<button class="btn sm" type="submit"><svg class="i"><use href="#i-check"/></svg></button></form></td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}
