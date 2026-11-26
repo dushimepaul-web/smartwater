@@ -4,6 +4,10 @@
 --  + configuration_email (serveur SMTP) et thingspeak (relais), secrets chiffrés
 --  + tables techniques de Django (sessions, admin, migrations).
 --
+--  Canal ThingSpeak 3597819 déjà relié au capteur n° 1 (relais désactivé) :
+--  collez les clés Write/Read dans Paramètres > ThingSpeak puis activez le relais.
+--  Aucune clé n'est stockée dans ce fichier.
+--
 --  Méthode recommandée : créer une base vide `smartwater` puis lancer
 --      python manage.py migrate
 --      python manage.py init_donnees
@@ -270,32 +274,32 @@ CREATE TABLE `django_migrations` (
 LOCK TABLES `django_migrations` WRITE;
 /*!40000 ALTER TABLE `django_migrations` DISABLE KEYS */;
 INSERT INTO `django_migrations` VALUES
-(1,'roles','0001_initial','2026-11-26 01:16:47.958675'),
-(2,'accounts','0001_initial','2026-11-26 01:16:47.971281'),
-(3,'accounts','0002_notifications_telephone','2026-11-26 01:16:47.981686'),
-(4,'contenttypes','0001_initial','2026-11-26 01:16:47.990284'),
-(5,'admin','0001_initial','2026-11-26 01:16:48.005950'),
-(6,'admin','0002_logentry_remove_auto_add','2026-11-26 01:16:48.008812'),
-(7,'admin','0003_logentry_add_action_flag_choices','2026-11-26 01:16:48.011239'),
-(8,'reservoirs','0001_initial','2026-11-26 01:16:48.046928'),
-(9,'alertes','0001_initial','2026-11-26 01:16:48.057597'),
-(10,'contenttypes','0002_remove_content_type_name','2026-11-26 01:16:48.072920'),
-(11,'auth','0001_initial','2026-11-26 01:16:48.114917'),
-(12,'auth','0002_alter_permission_name_max_length','2026-11-26 01:16:48.123985'),
-(13,'auth','0003_alter_user_email_max_length','2026-11-26 01:16:48.127029'),
-(14,'auth','0004_alter_user_username_opts','2026-11-26 01:16:48.130556'),
-(15,'auth','0005_alter_user_last_login_null','2026-11-26 01:16:48.134296'),
-(16,'auth','0006_require_contenttypes_0002','2026-11-26 01:16:48.135197'),
-(17,'auth','0007_alter_validators_add_error_messages','2026-11-26 01:16:48.138135'),
-(18,'auth','0008_alter_user_username_max_length','2026-11-26 01:16:48.141398'),
-(19,'auth','0009_alter_user_last_name_max_length','2026-11-26 01:16:48.144926'),
-(20,'auth','0010_alter_group_name_max_length','2026-11-26 01:16:48.155290'),
-(21,'auth','0011_update_proxy_permissions','2026-11-26 01:16:48.164149'),
-(22,'auth','0012_alter_user_first_name_max_length','2026-11-26 01:16:48.168638'),
-(23,'parametres','0001_configuration_email','2026-11-26 01:16:48.185340'),
-(24,'parametres','0002_liaison_thingspeak','2026-11-26 01:16:48.209119'),
-(25,'roles','0002_roles_par_defaut','2026-11-26 01:16:48.224715'),
-(26,'sessions','0001_initial','2026-11-26 01:16:48.232561');
+(1,'roles','0001_initial','2026-11-26 01:38:56.376911'),
+(2,'accounts','0001_initial','2026-11-26 01:38:56.389240'),
+(3,'accounts','0002_notifications_telephone','2026-11-26 01:38:56.398370'),
+(4,'contenttypes','0001_initial','2026-11-26 01:38:56.408994'),
+(5,'admin','0001_initial','2026-11-26 01:38:56.424574'),
+(6,'admin','0002_logentry_remove_auto_add','2026-11-26 01:38:56.427622'),
+(7,'admin','0003_logentry_add_action_flag_choices','2026-11-26 01:38:56.430215'),
+(8,'reservoirs','0001_initial','2026-11-26 01:38:56.468833'),
+(9,'alertes','0001_initial','2026-11-26 01:38:56.481254'),
+(10,'contenttypes','0002_remove_content_type_name','2026-11-26 01:38:56.504988'),
+(11,'auth','0001_initial','2026-11-26 01:38:56.562186'),
+(12,'auth','0002_alter_permission_name_max_length','2026-11-26 01:38:56.574178'),
+(13,'auth','0003_alter_user_email_max_length','2026-11-26 01:38:56.577270'),
+(14,'auth','0004_alter_user_username_opts','2026-11-26 01:38:56.580566'),
+(15,'auth','0005_alter_user_last_login_null','2026-11-26 01:38:56.584370'),
+(16,'auth','0006_require_contenttypes_0002','2026-11-26 01:38:56.585119'),
+(17,'auth','0007_alter_validators_add_error_messages','2026-11-26 01:38:56.587735'),
+(18,'auth','0008_alter_user_username_max_length','2026-11-26 01:38:56.590698'),
+(19,'auth','0009_alter_user_last_name_max_length','2026-11-26 01:38:56.594314'),
+(20,'auth','0010_alter_group_name_max_length','2026-11-26 01:38:56.602776'),
+(21,'auth','0011_update_proxy_permissions','2026-11-26 01:38:56.609613'),
+(22,'auth','0012_alter_user_first_name_max_length','2026-11-26 01:38:56.612580'),
+(23,'parametres','0001_configuration_email','2026-11-26 01:38:56.629772'),
+(24,'parametres','0002_liaison_thingspeak','2026-11-26 01:38:56.646911'),
+(25,'roles','0002_roles_par_defaut','2026-11-26 01:38:56.656532'),
+(26,'sessions','0001_initial','2026-11-26 01:38:56.662350');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `django_session`;
@@ -375,9 +379,9 @@ CREATE TABLE `roles` (
 LOCK TABLES `roles` WRITE;
 /*!40000 ALTER TABLE `roles` DISABLE KEYS */;
 INSERT INTO `roles` VALUES
-(1,'admin','Administrateur','Accès complet au système',1,'2026-11-26 01:16:48.221265'),
-(2,'utilisateur','Utilisateur','Consulte et gère ses propres réservoirs',0,'2026-11-26 01:16:48.223259'),
-(3,'technicien','Technicien','Installe et entretient les capteurs de ses réservoirs',0,'2026-11-26 01:16:48.627405');
+(1,'admin','Administrateur','Accès complet au système',1,'2026-11-26 01:38:56.654401'),
+(2,'utilisateur','Utilisateur','Consulte et gère ses propres réservoirs',0,'2026-11-26 01:38:56.655587'),
+(3,'technicien','Technicien','Installe et entretient les capteurs de ses réservoirs',0,'2026-11-26 01:38:57.159569');
 /*!40000 ALTER TABLE `roles` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `thingspeak`;
@@ -397,11 +401,13 @@ CREATE TABLE `thingspeak` (
   PRIMARY KEY (`id_liaison`),
   UNIQUE KEY `id_capteur` (`id_capteur`),
   CONSTRAINT `thingspeak_id_capteur_01113089_fk_capteurs_id_capteur` FOREIGN KEY (`id_capteur`) REFERENCES `capteurs` (`id_capteur`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 LOCK TABLES `thingspeak` WRITE;
 /*!40000 ALTER TABLE `thingspeak` DISABLE KEYS */;
+INSERT INTO `thingspeak` VALUES
+(1,0,3597819,'','',20,NULL,'',0,1);
 /*!40000 ALTER TABLE `thingspeak` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `utilisateurs`;
@@ -430,7 +436,7 @@ CREATE TABLE `utilisateurs` (
 LOCK TABLES `utilisateurs` WRITE;
 /*!40000 ALTER TABLE `utilisateurs` DISABLE KEYS */;
 INSERT INTO `utilisateurs` VALUES
-(1,'Administrateur','admin@smartwater.local','pbkdf2_sha256$1500000$3DafVddsyl4L9j5b89Qrf6$jBEgheYqCqp2E6wNmsFkkd7j9jumJbDEUBrTNmiqu/c=',1,NULL,'2026-11-26 01:16:48.858145',1,0,0,1,'');
+(1,'Administrateur','admin@smartwater.local','pbkdf2_sha256$1500000$hwOuZSoII78b2nhxtpwFjT$aiH1SoItbqoXgb0MbckjWWKmvulmhRM4lI1Z7PD0S3I=',1,NULL,'2026-11-26 01:38:57.390748',1,0,0,1,'');
 /*!40000 ALTER TABLE `utilisateurs` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
